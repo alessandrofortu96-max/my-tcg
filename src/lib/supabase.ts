@@ -5,19 +5,22 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 // Inizializza Supabase solo se le variabili d'ambiente sono presenti
 // Altrimenti crea un client "dummy" per evitare errori
-let supabase: SupabaseClient;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('⚠️ Supabase environment variables not found. Auth features will not work.');
-  // Crea un client con valori placeholder per evitare errori
-  // Le chiamate falliranno ma non crasheranno l'app
-  supabase = createClient(
-    'https://placeholder.supabase.co',
-    'placeholder-key'
-  );
-} else {
-  supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Usa una funzione per garantire l'inizializzazione corretta
+function createSupabaseClient(): SupabaseClient {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.warn('⚠️ Supabase environment variables not found. Auth features will not work.');
+    // Crea un client con valori placeholder per evitare errori
+    // Le chiamate falliranno ma non crasheranno l'app
+    return createClient(
+      'https://placeholder.supabase.co',
+      'placeholder-key'
+    );
+  }
+  return createClient(supabaseUrl, supabaseAnonKey);
 }
+
+// Inizializza il client Supabase immediatamente
+const supabase: SupabaseClient = createSupabaseClient();
 
 export { supabase };
 

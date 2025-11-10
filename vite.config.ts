@@ -55,9 +55,11 @@ export default defineConfig({
               id.includes('react-router') ||
               id.includes('react/jsx-runtime') ||
               id.includes('scheduler') ||
-              id.includes('@tanstack/react-query')
+              id.includes('@tanstack/react-query') ||
+              id.includes('@supabase')
             ) {
-              // Non creare un chunk separato per React e React Query, lasciali nel bundle principale
+              // Non creare un chunk separato per React, React Query e Supabase
+              // Lasciamoli nel bundle principale per evitare problemi di inizializzazione
               return undefined;
             }
             if (id.includes('@radix-ui')) {
@@ -65,9 +67,6 @@ export default defineConfig({
             }
             if (id.includes('lucide-react')) {
               return 'icons-vendor';
-            }
-            if (id.includes('@supabase')) {
-              return 'supabase-vendor';
             }
             return 'vendor';
           }
@@ -83,13 +82,14 @@ export default defineConfig({
     cssMinify: true,
   },
   optimizeDeps: {
-    // Pre-bundle React e React Query per evitare problemi di caricamento
+    // Pre-bundle React, React Query e Supabase per evitare problemi di caricamento
     include: [
       'react',
       'react-dom',
       'react/jsx-runtime',
       'react-router-dom',
       '@tanstack/react-query',
+      '@supabase/supabase-js',
     ],
     // Escludi le API routes dal pre-bundling
     exclude: ['@vercel/node'],

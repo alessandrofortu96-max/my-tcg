@@ -77,29 +77,29 @@ const ProductCard = ({ product, priority = false }: ProductCardProps) => {
           </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-3 pt-1.5 sm:pt-2">
-          <div className="text-2xl sm:text-2xl md:text-xl lg:text-2xl font-bold">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-3 pt-1.5 sm:pt-2 min-w-0">
+          <div className="text-2xl sm:text-2xl md:text-xl lg:text-2xl font-bold flex-shrink-0">
             €{product.price.toFixed(2)}
           </div>
           
           <Button 
             variant={inSelection ? "default" : "outline"} 
-            size="default"
+            size="sm"
             onClick={handleToggleSelection}
             disabled={isSold}
-            className="transition-smooth w-full sm:w-auto text-sm sm:text-base"
+            className="transition-smooth w-full sm:w-auto sm:flex-shrink-0 text-xs sm:text-sm whitespace-nowrap max-w-full"
           >
             {isSold ? (
-              'Non disponibile'
+              <span className="truncate">Non disponibile</span>
             ) : inSelection ? (
               <>
-                <Check className="mr-2 h-4 w-4" />
-                In selezione
+                <Check className="mr-1.5 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
+                <span>In selezione</span>
               </>
             ) : (
               <>
-                <Plus className="mr-2 h-4 w-4" />
-                Aggiungi
+                <Plus className="mr-1.5 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
+                <span>Aggiungi</span>
               </>
             )}
           </Button>

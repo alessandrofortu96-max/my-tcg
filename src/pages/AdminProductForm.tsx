@@ -34,6 +34,10 @@ const AdminProductForm = () => {
   const [imagePreviews, setImagePreviews] = useState<Map<number, string>>(new Map());
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Ref per tracciare se il componente è montato (previene setState dopo smontaggio)
+  const isMountedRef = useRef(true);
+  // Ref per tracciare gli upload in corso e poterli cancellare
+  const uploadAbortControllersRef = useRef<Map<number, AbortController>>(new Map());
   const [formData, setFormData] = useState<Omit<Product, 'id' | 'createdAt' | 'updatedAt'>>({
     name: '',
     game: 'pokemon',
@@ -48,6 +52,20 @@ const AdminProductForm = () => {
     description: '',
     featured: false,
   });
+
+  // Cleanup quando il componente viene smontato
+  useEffect(() => {
+    isMountedRef.current = true;
+    
+    return () => {
+      isMountedRef.current = false;
+      // Cancella tutti gli upload in corso quando il componente viene smontato
+      uploadAbortControllersRef.current.forEach(controller => {
+        controller.abort();
+      });
+      uploadAbortControllersRef.current.clear();
+    };
+  }, []);
 
   useEffect(() => {
     if (isEditMode && id) {
@@ -215,10 +233,22 @@ const AdminProductForm = () => {
     // Processa ogni file validato (in parallelo per velocizzare, ma con limite)
     const uploadPromises = validFiles.map(async (file, index) => {
       const tempIndex = formData.images.length + index;
+      
+      // Verifica che il componente sia ancora montato
+      if (!isMountedRef.current) {
+        return { success: false, file: file.name, error: 'Component unmounted' };
+      }
+
+      // Crea AbortController per questo upload
+      const abortController = new AbortController();
+      uploadAbortControllersRef.current.set(tempIndex, abortController);
 
       // Crea preview locale immediatamente
       const reader = new FileReader();
       reader.onload = (e) => {
+        // Verifica che il componente sia ancora montato prima di aggiornare lo stato
+        if (!isMountedRef.current) return;
+        
         const previewUrl = e.target?.result as string;
         setImagePreviews(prev => {
           const newMap = new Map(prev);
@@ -228,19 +258,31 @@ const AdminProductForm = () => {
       };
       reader.readAsDataURL(file);
 
-      // Marca come uploading
-      setUploadingImages(prev => new Set(prev).add(tempIndex));
+      // Marca come uploading (solo se montato)
+      if (isMountedRef.current) {
+        setUploadingImages(prev => new Set(prev).add(tempIndex));
+      }
 
       try {
-        // Upload su Supabase Storage con timeout
-        const uploadPromise = uploadProductImage(file, id || undefined);
+        // Upload su Supabase Storage con timeout e abort signal
+        const uploadPromise = uploadProductImage(file, id || undefined, abortController.signal);
         const timeoutPromise = new Promise<string>((_, reject) => {
-          setTimeout(() => {
+          const timeoutId = setTimeout(() => {
+            abortController.abort(); // Cancella l'upload se timeout
             reject(new Error('Timeout: upload troppo lento. Riprova con un\'immagine più piccola.'));
           }, 60000); // 60 secondi di timeout per l'upload
+          
+          // Pulisci timeout se l'upload completa prima
+          uploadPromise.finally(() => clearTimeout(timeoutId));
         });
 
         const uploadedUrl = await Promise.race([uploadPromise, timeoutPromise]);
+
+        // Verifica che il componente sia ancora montato prima di aggiornare lo stato
+        if (!isMountedRef.current) {
+          console.log('Component unmounted, skipping state update');
+          return { success: false, file: file.name, error: 'Component unmounted' };
+        }
 
         // Aggiorna le immagini nel form (aggiungi l'URL caricato)
         setFormData(prev => ({
@@ -262,6 +304,9 @@ const AdminProductForm = () => {
           return newSet;
         });
 
+        // Rimuovi l'AbortController dalla mappa
+        uploadAbortControllersRef.current.delete(tempIndex);
+
         toast({
           title: 'Upload completato',
           description: `Immagine "${file.name}" caricata con successo`,
@@ -269,7 +314,18 @@ const AdminProductForm = () => {
 
         return { success: true, file: file.name };
       } catch (error: any) {
+        // Se l'errore è dovuto all'abort, non mostrare errore
+        if (error.name === 'AbortError' || abortController.signal.aborted) {
+          console.log('Upload cancelled:', file.name);
+          return { success: false, file: file.name, error: 'Cancelled' };
+        }
+
         console.error('Error uploading image:', error);
+        
+        // Verifica che il componente sia ancora montato prima di aggiornare lo stato
+        if (!isMountedRef.current) {
+          return { success: false, file: file.name, error: error.message };
+        }
         
         // Rimuovi dalla lista di uploading
         setUploadingImages(prev => {
@@ -284,6 +340,9 @@ const AdminProductForm = () => {
           newMap.delete(tempIndex);
           return newMap;
         });
+
+        // Rimuovi l'AbortController dalla mappa
+        uploadAbortControllersRef.current.delete(tempIndex);
 
         toast({
           title: 'Errore upload',

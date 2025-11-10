@@ -23,12 +23,18 @@ const fileToBase64 = (file: File): Promise<string> => {
  * Upload un'immagine su Supabase Storage usando l'API route server-side
  * @param file Il file da caricare
  * @param productId ID del prodotto (opzionale, per organizzare i file)
+ * @param abortSignal Signal per cancellare l'upload
  * @returns URL pubblico dell'immagine caricata
  */
 export const uploadProductImage = async (
   file: File,
-  productId?: string
+  productId?: string,
+  abortSignal?: AbortSignal
 ): Promise<string> => {
+  // Verifica se l'upload è stato cancellato
+  if (abortSignal?.aborted) {
+    throw new DOMException('Upload cancelled', 'AbortError');
+  }
   if (!isSupabaseConfigured()) {
     throw new Error('Supabase non configurato');
   }
@@ -59,6 +65,12 @@ export const uploadProductImage = async (
     // Prova prima con l'API route server-side (funziona in produzione su Vercel)
     let response: Response | null = null;
     try {
+      // Verifica se l'upload è stato cancellato prima di iniziare
+      if (abortSignal?.aborted) {
+        throw new DOMException('Upload cancelled', 'AbortError');
+      }
+
+      // Usa direttamente l'AbortSignal se disponibile
       response = await fetch('/api/storage/upload', {
         method: 'POST',
         headers: {
@@ -71,10 +83,20 @@ export const uploadProductImage = async (
           file: fileBase64,
           contentType: file.type || 'image/jpeg',
         }),
+        signal: abortSignal, // Usa il signal per cancellare la richiesta
       });
+
+      // Verifica se l'upload è stato cancellato durante la risposta
+      if (abortSignal?.aborted) {
+        throw new DOMException('Upload cancelled', 'AbortError');
+      }
 
       if (response.ok) {
         const data = await response.json();
+        // Verifica di nuovo dopo il parsing della risposta
+        if (abortSignal?.aborted) {
+          throw new DOMException('Upload cancelled', 'AbortError');
+        }
         if (data.success && data.url) {
           return data.url;
         }
@@ -90,8 +112,18 @@ export const uploadProductImage = async (
       const errorData = await response.json().catch(() => ({ error: 'Errore sconosciuto' }));
       throw new Error(errorData.error || `Errore durante l'upload: ${response.statusText}`);
     } catch (apiError: any) {
+      // Se l'upload è stato cancellato, rilancia l'errore
+      if (apiError.name === 'AbortError' || abortSignal?.aborted) {
+        throw new DOMException('Upload cancelled', 'AbortError');
+      }
+      
       // Fallback: upload diretto (richiede policy di storage corrette)
       if (apiError.message === 'API_ROUTE_NOT_AVAILABLE' || apiError.message?.includes('Failed to fetch') || response?.status === 404) {
+        // Verifica se l'upload è stato cancellato prima del fallback
+        if (abortSignal?.aborted) {
+          throw new DOMException('Upload cancelled', 'AbortError');
+        }
+        
         console.warn('Upload diretto (sviluppo locale - richiede policy di storage)');
         
         // Verifica che il file sia valido
@@ -100,7 +132,12 @@ export const uploadProductImage = async (
         }
 
         // Upload diretto su Supabase Storage
-        // NOTA: Assicurati che le policy di storage permettano l'upload agli utenti autenticati
+        // NOTA: Supabase storage non supporta AbortSignal direttamente,
+        // ma possiamo verificare prima e dopo la chiamata
+        if (abortSignal?.aborted) {
+          throw new DOMException('Upload cancelled', 'AbortError');
+        }
+
         const { data, error: uploadError } = await supabase.storage
           .from(PRODUCT_IMAGES_BUCKET)
           .upload(filePath, file, {
@@ -108,6 +145,18 @@ export const uploadProductImage = async (
             upsert: false,
             contentType: file.type || 'image/jpeg', // Specifica il content type esplicitamente
           });
+
+        // Verifica se l'upload è stato cancellato dopo la chiamata
+        if (abortSignal?.aborted) {
+          // Se l'upload è stato completato ma cancellato dopo, elimina il file
+          if (data?.path) {
+            await supabase.storage
+              .from(PRODUCT_IMAGES_BUCKET)
+              .remove([data.path])
+              .catch(err => console.warn('Error cleaning up cancelled upload:', err));
+          }
+          throw new DOMException('Upload cancelled', 'AbortError');
+        }
 
         if (uploadError) {
           console.error('Error uploading file directly:', uploadError);

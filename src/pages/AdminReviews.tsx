@@ -359,17 +359,17 @@ const AdminReviews = () => {
                   <span className="sm:hidden">Nuova</span>
                 </Button>
               </DialogTrigger>
-                  <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                  <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
-                      <DialogTitle>
+                      <DialogTitle className="text-lg sm:text-xl">
                         {editingReview ? 'Modifica recensione' : 'Nuova recensione'}
                       </DialogTitle>
-                      <DialogDescription>
+                      <DialogDescription className="text-xs sm:text-sm">
                         Inserisci i dati della recensione ricevuta su piattaforma esterna
                       </DialogDescription>
                     </DialogHeader>
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
+                    <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="platform">Piattaforma *</Label>
                           <Select
@@ -490,7 +490,7 @@ const AdminReviews = () => {
                         </Label>
                       </div>
 
-                      <DialogFooter>
+                      <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
                         <Button
                           type="button"
                           variant="outline"
@@ -498,10 +498,11 @@ const AdminReviews = () => {
                             resetForm();
                             setIsDialogOpen(false);
                           }}
+                          className="w-full sm:w-auto text-sm"
                         >
                           Annulla
                         </Button>
-                        <Button type="submit">
+                        <Button type="submit" className="w-full sm:w-auto text-sm">
                           {editingReview ? 'Salva modifiche' : 'Crea recensione'}
                         </Button>
                       </DialogFooter>
@@ -548,40 +549,40 @@ const AdminReviews = () => {
         </div>
 
           {/* Reviews List */}
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             {isLoading ? (
-              <Card className="p-12 text-center">
-                <p className="text-muted-foreground">Caricamento...</p>
+              <Card className="p-8 sm:p-12 text-center">
+                <p className="text-sm sm:text-base text-muted-foreground">Caricamento...</p>
               </Card>
             ) : reviews.length === 0 ? (
-              <Card className="p-12 text-center">
-                <p className="text-muted-foreground">Nessuna recensione presente</p>
+              <Card className="p-8 sm:p-12 text-center">
+                <p className="text-sm sm:text-base text-muted-foreground">Nessuna recensione presente</p>
               </Card>
             ) : (
               reviews.map((review) => (
-                <Card key={review.id} className="p-6 hover:shadow-medium transition-smooth">
-                  <div className="flex flex-col md:flex-row gap-6">
-                    <div className="flex-1 space-y-3">
-                      <div className="flex flex-wrap items-start justify-between gap-2">
-                        <div className="space-y-2">
+                <Card key={review.id} className="p-4 sm:p-6 hover:shadow-medium transition-smooth">
+                  <div className="flex flex-col gap-4 sm:gap-6">
+                    <div className="flex-1 space-y-2 sm:space-y-3">
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                        <div className="space-y-2 min-w-0 flex-1">
                           {renderStars(review.rating)}
-                          <h3 className="text-xl font-semibold">{review.title}</h3>
-                          <p className="text-sm text-muted-foreground">{review.author}</p>
+                          <h3 className="text-lg sm:text-xl font-semibold break-words">{review.title}</h3>
+                          <p className="text-xs sm:text-sm text-muted-foreground">{review.author}</p>
                         </div>
 
-                        <div className="flex gap-2">
-                          <Badge variant="outline">{review.platform}</Badge>
-                          <Badge variant={review.published ? 'default' : 'secondary'}>
+                        <div className="flex gap-2 flex-shrink-0">
+                          <Badge variant="outline" className="text-xs">{review.platform}</Badge>
+                          <Badge variant={review.published ? 'default' : 'secondary'} className="text-xs">
                             {review.published ? 'Pubblicata' : 'Bozza'}
                           </Badge>
                         </div>
                       </div>
 
-                      <p className="text-sm text-muted-foreground leading-relaxed">
+                      <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed break-words">
                         {review.text}
                       </p>
 
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                      <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
                         <span>
                           {new Date(review.date).toLocaleDateString('it-IT', {
                             day: 'numeric',
@@ -591,7 +592,7 @@ const AdminReviews = () => {
                         </span>
                         {review.screenshotUrl && (
                           <>
-                            <span>•</span>
+                            <span className="hidden sm:inline">•</span>
                             <span>Screenshot disponibile</span>
                           </>
                         )}
@@ -602,17 +603,17 @@ const AdminReviews = () => {
                           variant={review.published ? 'outline' : 'default'}
                           size="sm"
                           onClick={() => handleTogglePublished(review.id)}
-                          className="transition-smooth"
+                          className="transition-smooth text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3"
                         >
                           {review.published ? (
                             <>
-                              <EyeOff className="mr-2 h-4 w-4" />
-                              Nascondi
+                              <EyeOff className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+                              <span className="hidden sm:inline">Nascondi</span>
                             </>
                           ) : (
                             <>
-                              <Eye className="mr-2 h-4 w-4" />
-                              Pubblica
+                              <Eye className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+                              <span className="hidden sm:inline">Pubblica</span>
                             </>
                           )}
                         </Button>
@@ -621,20 +622,20 @@ const AdminReviews = () => {
                           variant="outline"
                           size="sm"
                           onClick={() => handleEdit(review)}
-                          className="transition-smooth"
+                          className="transition-smooth text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3"
                         >
-                          <Edit className="mr-2 h-4 w-4" />
-                          Modifica
+                          <Edit className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+                          <span className="hidden sm:inline">Modifica</span>
                         </Button>
 
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => handleDelete(review.id)}
-                          className="transition-smooth"
+                          className="transition-smooth text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3"
                         >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Elimina
+                          <Trash2 className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+                          <span className="hidden sm:inline">Elimina</span>
                         </Button>
                       </div>
                     </div>

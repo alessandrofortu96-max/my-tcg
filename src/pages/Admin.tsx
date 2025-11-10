@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -21,17 +21,29 @@ const Admin = () => {
   const [filterType, setFilterType] = useState<ProductType | 'all'>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [user, setUser] = useState<any>(null);
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+
+  // Debounce per la ricerca (evita troppi filtri durante la digitazione)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300); // 300ms di delay
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   // React Query per caricare i prodotti
-  const { data: products = [], isLoading } = useQuery({
+  const { data: products = [], isLoading, isRefetching } = useQuery({
     queryKey: ['admin-products'],
     queryFn: async () => {
       // Carica tutti i prodotti (inclusi non pubblicati per admin)
       return await getProducts(true);
     },
-    staleTime: 30000, // Considera i dati freschi per 30 secondi
+    staleTime: 60000, // Considera i dati freschi per 60 secondi (aumentato)
     refetchOnWindowFocus: false, // Non refetch quando si torna alla finestra
-    refetchOnMount: true, // Refetch quando si monta il componente
+    refetchOnMount: false, // Non refetch quando si monta il componente (usa cache se disponibile)
+    refetchOnReconnect: true, // Refetch solo quando si riconnette
+    gcTime: 300000, // Mantieni in cache per 5 minuti (precedentemente cacheTime)
   });
 
   useEffect(() => {
@@ -42,18 +54,37 @@ const Admin = () => {
     loadData();
   }, []);
 
-  const filteredProducts = products.filter(product => {
-    const matchesGame = filterGame === 'all' || product.game === filterGame;
-    const matchesType = filterType === 'all' || product.type === filterType;
-    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesGame && matchesType && matchesSearch;
-  });
+  // Memoizza i conteggi dei prodotti per categoria
+  const productCounts = useMemo(() => {
+    return {
+      pokemon: products.filter(p => p.game === 'pokemon').length,
+      yugioh: products.filter(p => p.game === 'yugioh').length,
+      onepiece: products.filter(p => p.game === 'onepiece').length,
+      other: products.filter(p => p.game === 'other').length,
+    };
+  }, [products]);
+
+  // Memoizza i prodotti filtrati (evita ricalcoli ad ogni render)
+  const filteredProducts = useMemo(() => {
+    return products.filter(product => {
+      const matchesGame = filterGame === 'all' || product.game === filterGame;
+      const matchesType = filterType === 'all' || product.type === filterType;
+      const matchesSearch = debouncedSearchTerm === '' || 
+        product.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+        product.set.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+        product.cardCode.toLowerCase().includes(debouncedSearchTerm.toLowerCase());
+      return matchesGame && matchesType && matchesSearch;
+    });
+  }, [products, filterGame, filterType, debouncedSearchTerm]);
 
   // Mutation per toggle featured
   const toggleFeaturedMutation = useMutation({
     mutationFn: toggleProductFeatured,
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+    onSuccess: () => {
+      // Invalida solo la query (React Query refetch automaticamente se necessario)
+      // NON chiamare refetchQueries esplicitamente per evitare race condition
+      // Non usare await per non bloccare l'UI
+      queryClient.invalidateQueries({ queryKey: ['admin-products'] });
       toast({
         title: "Aggiornato",
         description: "Stato 'In evidenza' modificato con successo",
@@ -71,8 +102,9 @@ const Admin = () => {
   // Mutation per toggle status
   const toggleStatusMutation = useMutation({
     mutationFn: toggleProductStatus,
-    onSuccess: async (newStatus) => {
-      await queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+    onSuccess: (newStatus) => {
+      // Non usare await per non bloccare l'UI
+      queryClient.invalidateQueries({ queryKey: ['admin-products'] });
       toast({
         title: "Aggiornato",
         description: `Prodotto marcato come ${newStatus === 'sold' ? 'venduto' : 'disponibile'}`,
@@ -90,8 +122,9 @@ const Admin = () => {
   // Mutation per delete
   const deleteMutation = useMutation({
     mutationFn: deleteProduct,
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+    onSuccess: () => {
+      // Non usare await per non bloccare l'UI
+      queryClient.invalidateQueries({ queryKey: ['admin-products'] });
       toast({
         title: "Eliminato",
         description: "Prodotto eliminato con successo",
@@ -106,39 +139,41 @@ const Admin = () => {
     },
   });
 
-  const handleToggleFeatured = async (productId: string) => {
+  // Memoizza le funzioni handler per evitare re-render inutili
+  const handleToggleFeatured = useCallback((productId: string) => {
+    // Previeni click multipli
+    if (toggleFeaturedMutation.isPending) return;
     toggleFeaturedMutation.mutate(productId);
-  };
+  }, [toggleFeaturedMutation]);
 
-  const handleToggleStatus = async (productId: string, currentStatus: 'available' | 'sold') => {
+  const handleToggleStatus = useCallback((productId: string, currentStatus: 'available' | 'sold') => {
+    // Previeni click multipli
+    if (toggleStatusMutation.isPending) return;
     toggleStatusMutation.mutate(productId);
-  };
+  }, [toggleStatusMutation]);
 
-  const handleDelete = async (productId: string) => {
+  const handleDelete = useCallback((productId: string) => {
     if (!confirm('Sei sicuro di voler eliminare questo prodotto?')) {
       return;
     }
+    // Previeni click multipli
+    if (deleteMutation.isPending) return;
     deleteMutation.mutate(productId);
-  };
+  }, [deleteMutation]);
 
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     await auth.signOut();
     toast({
       title: "Logout effettuato",
       description: "Alla prossima!",
     });
     navigate('/', { replace: true });
-  };
+  }, [toast, navigate]);
 
-  // Count products by game
-  const productCounts = {
-    pokemon: products.filter(p => p.game === 'pokemon').length,
-    yugioh: products.filter(p => p.game === 'yugioh').length,
-    onepiece: products.filter(p => p.game === 'onepiece').length,
-    other: products.filter(p => p.game === 'other').length,
-  };
+  // Stato di loading combinato (query o refetch)
+  const isLoadingData = isLoading || isRefetching;
 
-  if (isLoading) {
+  if (isLoading && products.length === 0) {
     return (
       <ProtectedRoute>
         <div className="min-h-screen bg-background">
@@ -358,6 +393,7 @@ const Admin = () => {
                         variant={product.featured ? "default" : "outline"} 
                         size="sm"
                         onClick={() => handleToggleFeatured(product.id)}
+                        disabled={toggleFeaturedMutation.isPending || isLoadingData}
                         className="transition-smooth text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3"
                       >
                         <Star className={`h-3 w-3 sm:h-4 sm:w-4 sm:mr-2 ${product.featured ? 'fill-current' : ''}`} />
@@ -369,6 +405,7 @@ const Admin = () => {
                         variant="outline" 
                         size="sm"
                         onClick={() => handleToggleStatus(product.id, product.status)}
+                        disabled={toggleStatusMutation.isPending || isLoadingData}
                         className="transition-smooth text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3"
                       >
                         <span className="hidden sm:inline">{product.status === 'available' ? 'Marca come venduto' : 'Marca disponibile'}</span>
@@ -379,6 +416,7 @@ const Admin = () => {
                         variant="outline" 
                         size="sm"
                         onClick={() => navigate(`/dashboard/prodotti/${product.id}/modifica`)}
+                        disabled={isLoadingData}
                         className="text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3"
                       >
                         <Edit className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
@@ -389,6 +427,7 @@ const Admin = () => {
                         variant="outline" 
                         size="sm"
                         onClick={() => handleDelete(product.id)}
+                        disabled={deleteMutation.isPending || isLoadingData}
                         className="transition-smooth text-destructive hover:text-destructive text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3"
                       >
                         <Archive className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />

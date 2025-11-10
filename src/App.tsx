@@ -23,10 +23,17 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 30000, // Considera i dati freschi per 30 secondi
+      staleTime: 60000, // Considera i dati freschi per 60 secondi (aumentato)
       refetchOnWindowFocus: false, // Non refetch quando si torna alla finestra
-      refetchOnMount: true, // Refetch quando si monta il componente
+      refetchOnMount: false, // Non refetch quando si monta il componente (usa cache se disponibile)
+      refetchOnReconnect: true, // Refetch solo quando si riconnette
       retry: 1, // Riprova solo 1 volta in caso di errore
+      gcTime: 300000, // Mantieni in cache per 5 minuti (precedentemente cacheTime)
+      networkMode: 'online', // Esegui query solo se online
+    },
+    mutations: {
+      retry: 0, // Non riprovare le mutation in caso di errore
+      networkMode: 'online', // Esegui mutation solo se online
     },
   },
 });

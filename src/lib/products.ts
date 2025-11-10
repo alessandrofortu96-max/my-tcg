@@ -192,6 +192,7 @@ export const getProducts = async (
       query = query.range(offset, offset + pagination.limit - 1);
     }
 
+    // Esegui la query (Supabase gestisce internamente i timeout)
     const { data, error } = await query;
 
     if (error) {
@@ -208,7 +209,7 @@ export const getProducts = async (
     }
 
     // Carica tutte le immagini in una volta (solo per i prodotti della pagina corrente)
-    const productIds = data.map(p => p.id);
+    const productIds = data.map((p: any) => p.id);
     const { data: allImages } = await supabase
       .from('product_images')
       .select('product_id, url, sort_order')
@@ -221,9 +222,9 @@ export const getProducts = async (
       .select('product_id')
       .in('product_id', productIds);
 
-    const featuredSet = new Set(allFeatured?.map(f => f.product_id) || []);
+    const featuredSet = new Set(allFeatured?.map((f: any) => f.product_id) || []);
     const imagesMap = new Map<string, string[]>();
-    allImages?.forEach(img => {
+    allImages?.forEach((img: any) => {
       if (!imagesMap.has(img.product_id)) {
         imagesMap.set(img.product_id, []);
       }
@@ -231,7 +232,7 @@ export const getProducts = async (
     });
 
     // Mappa i prodotti usando i dati già caricati
-    const products: Product[] = data.map(dbProduct => ({
+    const products: Product[] = data.map((dbProduct: any) => ({
       id: dbProduct.id,
       name: dbProduct.name,
       game: mapGameSlugToGameType(dbProduct.games?.slug || 'other'),
@@ -260,8 +261,12 @@ export const getProducts = async (
     }
 
     return products;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in getProducts:', error);
+    // Se è un timeout, rilancia l'errore
+    if (error.message?.includes('Timeout')) {
+      throw error;
+    }
     return pagination 
       ? createPaginationResult([], 0, pagination.page || 1, pagination?.limit || DEFAULT_PAGE_SIZE)
       : [];
@@ -883,24 +888,89 @@ export const updateProduct = async (id: string, updates: Partial<Omit<Product, '
     }
 
     // Verifica che ci sia almeno un campo da aggiornare (oltre a updated_at)
+    // Nota: featured e images vengono gestiti separatamente, quindi non sono in updateData
     const fieldsToUpdate = Object.keys(updateData).filter(key => key !== 'updated_at');
-    if (fieldsToUpdate.length === 0) {
-      console.warn('No fields to update for product:', id);
-      // Ritorna il prodotto esistente se non ci sono modifiche
+    const hasUpdatesInTable = fieldsToUpdate.length > 0;
+    const hasUpdatesOutsideTable = updates.featured !== undefined || updates.images !== undefined;
+    
+    // Se non ci sono campi da aggiornare nella tabella products E non ci sono aggiornamenti esterni,
+    // allora non c'è nulla da fare (evita chiamate inutili al DB)
+    if (!hasUpdatesInTable && !hasUpdatesOutsideTable) {
+      // Silently return - non è un errore, semplicemente non c'è nulla da aggiornare
       return await getProductById(id, true);
     }
+    
+    // Se ci sono solo aggiornamenti esterni (featured/images) ma nessun campo nella tabella products,
+    // aggiorna comunque updated_at per segnalare che il prodotto è stato modificato
+    if (!hasUpdatesInTable && hasUpdatesOutsideTable) {
+      // Aggiorna solo updated_at per segnalare la modifica
+      const { error: timestampError } = await supabase
+        .from('products')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', id);
+      
+      if (timestampError) {
+        console.warn('Error updating timestamp:', timestampError);
+      }
+    } else if (hasUpdatesInTable) {
+      // Aggiorna i campi nella tabella products
+      const { data: updatedProduct, error } = await supabase
+        .from('products')
+        .update(updateData)
+        .eq('id', id)
+        .select()
+        .single();
 
-    const { data: updatedProduct, error } = await supabase
-      .from('products')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single();
+      if (error) {
+        console.error('Error updating product:', error);
+        console.error('Update data:', updateData);
+        throw new Error(error.message || 'Errore durante l\'aggiornamento del prodotto');
+      }
+    }
 
-    if (error) {
-      console.error('Error updating product:', error);
-      console.error('Update data:', updateData);
-      throw new Error(error.message || 'Errore durante l\'aggiornamento del prodotto');
+    // Aggiorna featured PRIMA delle immagini (gestito separatamente dalla tabella products)
+    if (updates.featured !== undefined) {
+      try {
+        const { data: existing, error: featuredCheckError } = await supabase
+          .from('featured_products')
+          .select('product_id')
+          .eq('product_id', id)
+          .maybeSingle();
+
+        if (featuredCheckError && featuredCheckError.code !== 'PGRST116') {
+          console.warn('Error checking featured status:', featuredCheckError);
+          throw new Error('Errore durante il controllo dello stato featured');
+        } else {
+          if (updates.featured && !existing) {
+            // Aggiungi
+            const { error: insertError } = await supabase
+              .from('featured_products')
+              .insert({ product_id: id, rank: 999 });
+            if (insertError) {
+              console.error('Error adding to featured:', insertError);
+              throw new Error('Impossibile aggiungere il prodotto agli featured');
+            }
+          } else if (!updates.featured && existing) {
+            // Rimuovi
+            const { error: deleteError } = await supabase
+              .from('featured_products')
+              .delete()
+              .eq('product_id', id);
+            if (deleteError) {
+              console.error('Error removing from featured:', deleteError);
+              throw new Error('Impossibile rimuovere il prodotto dagli featured');
+            }
+          }
+        }
+      } catch (featuredError: any) {
+        console.error('Error updating featured status:', featuredError);
+        // Se featured è l'unico aggiornamento, fallisci
+        if (!hasUpdatesInTable && updates.images === undefined) {
+          throw featuredError;
+        }
+        // Altrimenti, continua ma avvisa (non dovrebbe succedere)
+        console.warn('Featured update failed but continuing with other updates');
+      }
     }
 
     // Aggiorna immagini se presenti
@@ -918,7 +988,13 @@ export const updateProduct = async (id: string, updates: Partial<Omit<Product, '
 
         // Aggiungi nuove immagini
         if (updates.images && updates.images.length > 0) {
-          const productName = updates.name || updatedProduct?.name || '';
+          // Prendi il nome del prodotto (dalle updates o dal prodotto esistente)
+          let productName = updates.name || '';
+          if (!productName) {
+            const existingProduct = await getProductById(id, true);
+            productName = existingProduct?.name || '';
+          }
+
           const imagesToInsert = updates.images
             .filter(url => url && url.trim() !== '') // Filtra URL vuoti
             .map((url, index) => ({
@@ -941,43 +1017,6 @@ export const updateProduct = async (id: string, updates: Partial<Omit<Product, '
       } catch (imagesError) {
         console.warn('Error updating images:', imagesError);
         // Non fallire l'update se le immagini falliscono
-      }
-    }
-
-    // Aggiorna featured
-    if (updates.featured !== undefined) {
-      try {
-        const { data: existing, error: featuredCheckError } = await supabase
-          .from('featured_products')
-          .select('product_id')
-          .eq('product_id', id)
-          .maybeSingle();
-
-        if (featuredCheckError && featuredCheckError.code !== 'PGRST116') {
-          console.warn('Error checking featured status:', featuredCheckError);
-        } else {
-          if (updates.featured && !existing) {
-            // Aggiungi
-            const { error: insertError } = await supabase
-              .from('featured_products')
-              .insert({ product_id: id, rank: 999 });
-            if (insertError) {
-              console.warn('Error adding to featured:', insertError);
-            }
-          } else if (!updates.featured && existing) {
-            // Rimuovi
-            const { error: deleteError } = await supabase
-              .from('featured_products')
-              .delete()
-              .eq('product_id', id);
-            if (deleteError) {
-              console.warn('Error removing from featured:', deleteError);
-            }
-          }
-        }
-      } catch (featuredError) {
-        console.warn('Error updating featured status:', featuredError);
-        // Non fallire l'update se featured fallisce
       }
     }
 
@@ -1022,14 +1061,82 @@ export const toggleProductFeatured = async (id: string): Promise<boolean> => {
   }
 
   try {
+    // Carica il prodotto corrente per verificare lo stato featured
     const product = await getProductById(id, true);
     if (!product) {
       throw new Error('Product not found');
     }
 
-    await updateProduct(id, { featured: !product.featured });
-    return !product.featured;
-  } catch (error) {
+    const newFeaturedStatus = !product.featured;
+
+    // Aggiorna lo stato featured direttamente nella tabella featured_products
+    // senza passare per updateProduct per evitare il problema "No fields to update"
+    if (newFeaturedStatus) {
+      // Aggiungi agli featured - verifica prima se esiste già
+      const { data: existing, error: checkError } = await supabase
+        .from('featured_products')
+        .select('product_id')
+        .eq('product_id', id)
+        .maybeSingle();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        console.error('Error checking featured status:', checkError);
+        throw new Error('Errore durante il controllo dello stato featured');
+      }
+
+      // Se non esiste, aggiungilo
+      if (!existing) {
+        const { error: insertError } = await supabase
+          .from('featured_products')
+          .insert({ product_id: id, rank: 999 });
+
+        if (insertError) {
+          console.error('Error adding to featured:', insertError);
+          throw new Error('Impossibile aggiungere il prodotto agli featured');
+        }
+      }
+      // Se esiste già, non fare nulla (idempotente)
+    } else {
+      // Rimuovi dagli featured - verifica prima se esiste
+      const { data: existing, error: checkError } = await supabase
+        .from('featured_products')
+        .select('product_id')
+        .eq('product_id', id)
+        .maybeSingle();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        console.error('Error checking featured status before delete:', checkError);
+        // Non fallire se non esiste già - potrebbe essere già stato rimosso
+      }
+
+      // Se esiste, rimuovilo
+      if (existing) {
+        const { error: deleteError } = await supabase
+          .from('featured_products')
+          .delete()
+          .eq('product_id', id);
+
+        if (deleteError) {
+          console.error('Error removing from featured:', deleteError);
+          throw new Error('Impossibile rimuovere il prodotto dagli featured');
+        }
+      }
+      // Se non esiste già, non fare nulla (idempotente)
+    }
+
+    // Aggiorna il timestamp del prodotto per segnalare la modifica
+    const { error: timestampError } = await supabase
+      .from('products')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('id', id);
+
+    if (timestampError) {
+      console.warn('Error updating timestamp:', timestampError);
+      // Non fallire se il timestamp non viene aggiornato
+    }
+
+    return newFeaturedStatus;
+  } catch (error: any) {
     console.error('Error in toggleProductFeatured:', error);
     throw error;
   }

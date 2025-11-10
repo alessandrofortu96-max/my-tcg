@@ -19,10 +19,10 @@ const Header = () => {
             <Link to="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
               <img 
                 src="/logo.svg" 
-                alt="my-tcg.it" 
+                alt="My-TCG.it" 
                 className="h-8 w-8 md:h-10 md:w-10"
               />
-              <span className="text-lg md:text-xl font-bold tracking-tight hidden sm:inline">my-tcg.it</span>
+              <span className="text-lg md:text-xl font-bold tracking-tight hidden sm:inline">My-TCG.it</span>
             </Link>
             
             <nav className="hidden md:flex items-center space-x-4 lg:space-x-6">

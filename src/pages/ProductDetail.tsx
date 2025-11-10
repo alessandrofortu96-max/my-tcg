@@ -418,31 +418,31 @@ const ProductDetail = () => {
       {/* Lightbox per immagini a schermo intero */}
       <Dialog open={lightboxOpen} onOpenChange={setLightboxOpen}>
         <DialogContent 
-          className="max-w-[95vw] max-h-[95vh] w-full h-full p-0 border-0 bg-black/95"
+          className="!max-w-none !w-screen !h-screen !max-h-screen !p-0 !border-0 !bg-black/95 !translate-x-0 !translate-y-0 !left-0 !top-0 !grid-none lightbox-dialog"
           onClick={(e) => {
             // Chiudi se si clicca sullo sfondo (non sull'immagine)
-            if (e.target === e.currentTarget) {
+            if (e.target === e.currentTarget || (e.target as HTMLElement).classList.contains('lightbox-overlay')) {
               setLightboxOpen(false);
             }
           }}
         >
-          <div className="relative w-full h-full flex items-center justify-center p-4 md:p-8">
+          <div className="relative w-full h-full flex items-center justify-center p-4 sm:p-6 md:p-8 lightbox-overlay overflow-auto">
             {/* Pulsante chiudi */}
             <button
               onClick={() => setLightboxOpen(false)}
-              className="absolute top-4 right-4 z-50 p-2 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors"
+              className="fixed top-4 right-4 z-[60] p-2 sm:p-3 rounded-full bg-black/70 hover:bg-black/90 text-white transition-colors shadow-lg"
               aria-label="Chiudi lightbox"
             >
-              <X className="h-6 w-6" />
+              <X className="h-5 w-5 sm:h-6 sm:w-6" />
             </button>
 
             {/* Immagine */}
             {product.images[lightboxImageIndex] && (
-              <div className="relative w-full h-full flex items-center justify-center">
+              <div className="relative w-full min-h-full flex items-center justify-center py-16 sm:py-20 md:py-24">
                 <img
                   src={product.images[lightboxImageIndex]}
                   alt={`${product.name} - Immagine ${lightboxImageIndex + 1}`}
-                  className="max-w-full max-h-full object-contain"
+                  className="max-w-[min(90vw,1400px)] max-h-[min(85vh,1400px)] w-auto h-auto object-contain"
                   onClick={(e) => e.stopPropagation()}
                 />
               </div>
@@ -456,33 +456,33 @@ const ProductDetail = () => {
                     e.stopPropagation();
                     handleLightboxPrev();
                   }}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 z-50 p-3 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors"
+                  className="fixed left-4 sm:left-6 top-1/2 -translate-y-1/2 z-[60] p-2 sm:p-3 rounded-full bg-black/70 hover:bg-black/90 text-white transition-colors shadow-lg"
                   aria-label="Immagine precedente"
                 >
-                  <ChevronLeft className="h-6 w-6" />
+                  <ChevronLeft className="h-5 w-5 sm:h-6 sm:w-6" />
                 </button>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     handleLightboxNext();
                   }}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 z-50 p-3 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors"
+                  className="fixed right-4 sm:right-6 top-1/2 -translate-y-1/2 z-[60] p-2 sm:p-3 rounded-full bg-black/70 hover:bg-black/90 text-white transition-colors shadow-lg"
                   aria-label="Immagine successiva"
                 >
-                  <ChevronRight className="h-6 w-6" />
+                  <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6" />
                 </button>
               </>
             )}
 
             {/* Indicatore immagine corrente */}
             {product.images.length > 1 && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 bg-black/70 text-white text-sm font-medium px-4 py-2 rounded-full backdrop-blur-sm">
+              <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[60] bg-black/70 text-white text-xs sm:text-sm font-medium px-3 sm:px-4 py-1.5 sm:py-2 rounded-full backdrop-blur-sm shadow-lg">
                 {lightboxImageIndex + 1} / {product.images.length}
               </div>
             )}
 
             {/* Istruzioni tastiera */}
-            <div className="absolute bottom-4 right-4 z-50 bg-black/50 text-white text-xs px-3 py-2 rounded backdrop-blur-sm opacity-0 hover:opacity-100 transition-opacity">
+            <div className="fixed bottom-4 right-4 z-[60] bg-black/50 text-white text-xs px-2 sm:px-3 py-1.5 sm:py-2 rounded backdrop-blur-sm opacity-0 hover:opacity-100 transition-opacity hidden sm:block">
               <p>← → Naviga | ESC Esci</p>
             </div>
           </div>

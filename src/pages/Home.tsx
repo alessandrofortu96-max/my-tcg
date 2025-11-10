@@ -157,13 +157,17 @@ const Home = () => {
                 </Button>
               </div>
 
-              {featuredProducts.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                  {featuredProducts.map(product => (
-                    <ProductCard key={product.id} product={product} />
-                  ))}
-                </div>
-              ) : (
+                          {featuredProducts.length > 0 ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                              {featuredProducts.map((product, index) => (
+                                <ProductCard 
+                                  key={product.id} 
+                                  product={product}
+                                  priority={index < 2} // Prime 2 immagini sono prioritarie
+                                />
+                              ))}
+                            </div>
+                          ) : (
                 <div className="text-center py-12">
                   <p className="text-sm sm:text-base text-muted-foreground">
                     Nessun prodotto in evidenza al momento.

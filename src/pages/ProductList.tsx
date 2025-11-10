@@ -1,45 +1,67 @@
 import { useSearchParams, Link } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ProductCard from '@/components/ProductCard';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getProducts, getProductsByGame, getProductsByType } from '@/lib/products';
 import { gameNames, typeNames } from '@/lib/constants';
 import { Product } from '@/lib/types';
 import { GameType, ProductType } from '@/lib/types';
+import { DEFAULT_PAGE_SIZE } from '@/lib/pagination';
 
 const ProductList = () => {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const game = searchParams.get('game') as GameType | null;
   const type = searchParams.get('type') as ProductType | null;
+  const page = parseInt(searchParams.get('page') || '1', 10);
+  
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
 
-  useEffect(() => {
-    const loadProducts = async () => {
-      setIsLoading(true);
+  const loadProducts = useCallback(async () => {
+    setIsLoading(true);
+    try {
       let loadedProducts: Product[] = [];
       
+      // Carica prodotti con filtri
+      // Nota: per ora usiamo paginazione client-side per mantenere compatibilità
+      // In futuro possiamo spostare la paginazione server-side per migliori performance
       if (game && type) {
         // Filter by both game and type
-        const allProducts = await getProducts();
+        const allProducts = await getProducts() as Product[];
         loadedProducts = allProducts.filter(p => p.game === game && p.type === type);
       } else if (game) {
         loadedProducts = await getProductsByGame(game);
       } else if (type) {
         loadedProducts = await getProductsByType(type);
       } else {
-        loadedProducts = await getProducts();
+        loadedProducts = await getProducts() as Product[];
       }
       
-      setProducts(loadedProducts);
+      // Applica paginazione client-side per ora (verrà spostata server-side)
+      const startIndex = (page - 1) * DEFAULT_PAGE_SIZE;
+      const endIndex = startIndex + DEFAULT_PAGE_SIZE;
+      const paginatedProducts = loadedProducts.slice(startIndex, endIndex);
+      const calculatedTotalPages = Math.ceil(loadedProducts.length / DEFAULT_PAGE_SIZE);
+      
+      setProducts(paginatedProducts);
+      setTotalPages(calculatedTotalPages);
+      setTotal(loadedProducts.length);
+    } catch (error) {
+      console.error('Error loading products:', error);
+      setProducts([]);
+    } finally {
       setIsLoading(false);
-    };
-    
+    }
+  }, [game, type, page]);
+
+  useEffect(() => {
     loadProducts();
-  }, [game, type]);
+  }, [loadProducts]);
 
   const title = game && type 
     ? `${gameNames[game]} - ${typeNames[type]}`
@@ -66,7 +88,10 @@ const ProductList = () => {
                 {title}
               </h1>
               <p className="text-muted-foreground">
-                {isLoading ? 'Caricamento...' : `${products.length} ${products.length === 1 ? 'prodotto' : 'prodotti'}`}
+                {isLoading 
+                  ? 'Caricamento...' 
+                  : `${total} ${total === 1 ? 'prodotto' : 'prodotti'}${totalPages > 1 ? ` • Pagina ${page} di ${totalPages}` : ''}`
+                }
               </p>
             </div>
           </div>
@@ -86,11 +111,89 @@ const ProductList = () => {
                   </p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {products.map(product => (
-                    <ProductCard key={product.id} product={product} />
-                  ))}
-                </div>
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    {products.map(product => (
+                      <ProductCard key={product.id} product={product} />
+                    ))}
+                  </div>
+
+                  {/* Pagination */}
+                  {totalPages > 1 && (
+                    <div className="mt-12 flex items-center justify-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const newParams = new URLSearchParams(searchParams);
+                          if (page > 1) {
+                            newParams.set('page', (page - 1).toString());
+                          } else {
+                            newParams.delete('page');
+                          }
+                          setSearchParams(newParams);
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
+                        disabled={page === 1 || isLoading}
+                      >
+                        <ChevronLeft className="h-4 w-4 mr-1" />
+                        Precedente
+                      </Button>
+
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                          let pageNum: number;
+                          if (totalPages <= 5) {
+                            pageNum = i + 1;
+                          } else if (page <= 3) {
+                            pageNum = i + 1;
+                          } else if (page >= totalPages - 2) {
+                            pageNum = totalPages - 4 + i;
+                          } else {
+                            pageNum = page - 2 + i;
+                          }
+
+                          return (
+                            <Button
+                              key={pageNum}
+                              variant={pageNum === page ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => {
+                                const newParams = new URLSearchParams(searchParams);
+                                if (pageNum === 1) {
+                                  newParams.delete('page');
+                                } else {
+                                  newParams.set('page', pageNum.toString());
+                                }
+                                setSearchParams(newParams);
+                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                              }}
+                              disabled={isLoading}
+                              className="min-w-[40px]"
+                            >
+                              {pageNum}
+                            </Button>
+                          );
+                        })}
+                      </div>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const newParams = new URLSearchParams(searchParams);
+                          newParams.set('page', (page + 1).toString());
+                          setSearchParams(newParams);
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
+                        disabled={page >= totalPages || isLoading}
+                      >
+                        Successiva
+                        <ChevronRight className="h-4 w-4 ml-1" />
+                      </Button>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>

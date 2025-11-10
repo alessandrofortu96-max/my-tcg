@@ -6,6 +6,7 @@ import { Product } from '@/lib/types';
 import { gameNames } from '@/lib/constants';
 import { useSelection } from '@/contexts/SelectionContext';
 import { Plus, Check } from 'lucide-react';
+import OptimizedImage from '@/components/OptimizedImage';
 
 interface ProductCardProps {
   product: Product;
@@ -30,11 +31,13 @@ const ProductCard = ({ product }: ProductCardProps) => {
   return (
     <Card className="group overflow-hidden border-border bg-card transition-smooth hover:shadow-medium">
       <Link to={`/prodotto/${product.id}`}>
-        <div className="aspect-[3/4] overflow-hidden bg-accent">
-          <img 
-            src={product.images[0]} 
+        <div className="overflow-hidden">
+          <OptimizedImage
+            src={product.images[0] || '/placeholder.svg'}
             alt={product.name}
-            className="w-full h-full object-cover transition-smooth group-hover:scale-105"
+            aspectRatio="3/4"
+            priority={priority}
+            className="transition-transform duration-300 group-hover:scale-105"
           />
         </div>
       </Link>

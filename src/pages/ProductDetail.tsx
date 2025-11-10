@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ContactModal from '@/components/ContactModal';
+import OptimizedImage from '@/components/OptimizedImage';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -94,11 +95,13 @@ const ProductDetail = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 md:gap-16 max-w-6xl mx-auto">
             {/* Image Gallery */}
             <div className="space-y-4">
-              <div className="aspect-[3/4] overflow-hidden rounded-lg border border-border bg-accent">
-                <img 
-                  src={product.images[selectedImage]} 
+              <div className="rounded-lg border border-border overflow-hidden">
+                <OptimizedImage
+                  src={product.images[selectedImage] || '/placeholder.svg'}
                   alt={product.name}
-                  className="w-full h-full object-cover"
+                  aspectRatio="3/4"
+                  priority={selectedImage === 0} // Prima immagine è prioritaria
+                  className="rounded-lg"
                 />
               </div>
               
@@ -108,14 +111,15 @@ const ProductDetail = () => {
                     <button
                       key={index}
                       onClick={() => setSelectedImage(index)}
-                      className={`aspect-[3/4] overflow-hidden rounded border-2 transition-smooth ${
+                      className={`overflow-hidden rounded border-2 transition-smooth ${
                         selectedImage === index ? 'border-primary' : 'border-border hover:border-primary/50'
                       }`}
                     >
-                      <img 
-                        src={image} 
+                      <OptimizedImage
+                        src={image}
                         alt={`${product.name} ${index + 1}`}
-                        className="w-full h-full object-cover"
+                        aspectRatio="3/4"
+                        className="rounded"
                       />
                     </button>
                   ))}

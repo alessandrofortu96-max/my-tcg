@@ -39,13 +39,36 @@ export default defineConfig({
     sourcemap: false,
     // Optimize chunk size
     chunkSizeWarningLimit: 1000,
+    // Minificazione e ottimizzazione
+    minify: 'esbuild',
     rollupOptions: {
       output: {
-        manualChunks: {
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'ui-vendor': ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu'],
+        manualChunks: (id) => {
+          // Separare vendor chunks per miglior caching
+          if (id.includes('node_modules')) {
+            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
+              return 'react-vendor';
+            }
+            if (id.includes('@radix-ui') || id.includes('@tanstack')) {
+              return 'ui-vendor';
+            }
+            if (id.includes('lucide-react')) {
+              return 'icons-vendor';
+            }
+            if (id.includes('@supabase')) {
+              return 'supabase-vendor';
+            }
+            return 'vendor';
+          }
         },
+        // Ottimizza nomi file per caching
+        chunkFileNames: 'assets/js/[name]-[hash].js',
+        entryFileNames: 'assets/js/[name]-[hash].js',
+        assetFileNames: 'assets/[ext]/[name]-[hash].[ext]',
       },
     },
+    // Ottimizzazioni CSS
+    cssCodeSplit: true,
+    cssMinify: true,
   },
 });

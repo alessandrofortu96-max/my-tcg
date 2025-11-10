@@ -69,10 +69,10 @@ const Category = () => {
         <HeroSection imageName={heroImageName} minHeight="min-h-[400px]">
           <div className="container mx-auto px-4 py-12 sm:py-16 md:py-20 lg:py-24">
             <div className="max-w-3xl mx-auto text-center space-y-4 sm:space-y-6">
-              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight leading-tight text-gray-900">
+              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight leading-tight text-gray-900 drop-shadow-sm">
                 {gameNames[gameType]}
               </h1>
-              <p className="text-base sm:text-lg md:text-xl text-gray-700 leading-relaxed px-4 font-medium">
+              <p className="text-base sm:text-lg md:text-xl text-gray-700 leading-relaxed px-4 font-medium drop-shadow-sm">
                 Esplora le carte disponibili dalla mia collezione
               </p>
             </div>
@@ -128,11 +128,15 @@ const Category = () => {
               </div>
 
               {featuredProducts.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                  {featuredProducts.map(product => (
-                    <ProductCard key={product.id} product={product} />
-                  ))}
-                </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                              {featuredProducts.map((product, index) => (
+                                <ProductCard 
+                                  key={product.id} 
+                                  product={product}
+                                  priority={index < 2} // Prime 2 immagini sono prioritarie
+                                />
+                              ))}
+                            </div>
               ) : (
                 <div className="text-center py-12">
                   <p className="text-sm sm:text-base text-muted-foreground">

@@ -102,12 +102,39 @@ const mapDbProductToProduct = async (dbProduct: any): Promise<Product> => {
 };
 
 // Get all products (admin: tutti, pubblico: solo published)
-export const getProducts = async (includeUnpublished: boolean = false): Promise<Product[]> => {
+// Supporta paginazione opzionale
+export const getProducts = async (
+  includeUnpublished: boolean = false,
+  pagination?: PaginationParams
+): Promise<PaginationResult<Product> | Product[]> => {
   if (!isSupabaseConfigured()) {
-    return [];
+    return pagination ? createPaginationResult([], 0, pagination.page, pagination.limit) : [];
   }
 
   try {
+    // Query base per contare il totale (solo se paginazione è richiesta)
+    let count: number | null = null;
+    if (pagination) {
+      let countQuery = supabase
+        .from('products')
+        .select('*', { count: 'exact', head: true });
+
+      if (!includeUnpublished) {
+        countQuery = countQuery.eq('published', true);
+      }
+
+      const { count: countResult, error: countError } = await countQuery;
+      
+      if (countError) {
+        console.error('Error counting products:', countError);
+        // Ritorna errore se count fallisce e paginazione è richiesta
+        return createPaginationResult([], 0, pagination.page, pagination.limit);
+      }
+      
+      count = countResult;
+    }
+
+    // Query per i dati
     let query = supabase
       .from('products')
       .select(`
@@ -121,16 +148,28 @@ export const getProducts = async (includeUnpublished: boolean = false): Promise<
       query = query.eq('published', true);
     }
 
+    // Applica paginazione se richiesta
+    if (pagination) {
+      const offset = getOffset(pagination.page, pagination.limit);
+      query = query.range(offset, offset + pagination.limit - 1);
+    }
+
     const { data, error } = await query;
 
     if (error) {
       console.error('Error fetching products:', error);
-      return [];
+      return pagination 
+        ? createPaginationResult([], 0, pagination.page, pagination.limit)
+        : [];
     }
 
-    if (!data) return [];
+    if (!data) {
+      return pagination 
+        ? createPaginationResult([], 0, pagination.page, pagination.limit)
+        : [];
+    }
 
-    // Carica tutte le immagini in una volta
+    // Carica tutte le immagini in una volta (solo per i prodotti della pagina corrente)
     const productIds = data.map(p => p.id);
     const { data: allImages } = await supabase
       .from('product_images')
@@ -172,10 +211,22 @@ export const getProducts = async (includeUnpublished: boolean = false): Promise<
       updatedAt: new Date(dbProduct.updated_at),
     }));
 
+    // Ritorna con paginazione se richiesta
+    if (pagination) {
+      return createPaginationResult(
+        products,
+        count || 0,
+        pagination.page,
+        pagination.limit
+      );
+    }
+
     return products;
   } catch (error) {
     console.error('Error in getProducts:', error);
-    return [];
+    return pagination 
+      ? createPaginationResult([], 0, pagination.page || 1, pagination?.limit || DEFAULT_PAGE_SIZE)
+      : [];
   }
 };
 

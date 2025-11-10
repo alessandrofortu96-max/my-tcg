@@ -27,6 +27,11 @@ interface ReviewData {
 // Cache for reviews data
 let reviewsCache: Review[] | null = null;
 
+// Clear cache (for forcing refetch)
+export const clearReviewsCache = (): void => {
+  reviewsCache = null;
+};
+
 // Load reviews from JSON file
 const loadReviews = async (): Promise<Review[]> => {
   if (reviewsCache !== null) {

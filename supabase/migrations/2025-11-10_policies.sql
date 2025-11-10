@@ -14,6 +14,16 @@ alter table public.product_types   enable row level security;
 alter table public.site_settings   enable row level security;
 
 -- POLICY: SELECT pubblica (anon & authenticated)
+-- Rimuovi policy esistenti se presenti (per permettere re-esecuzione idempotente)
+drop policy if exists "prodotti pubblicati leggibili" on public.products;
+drop policy if exists "immagini leggibili se prodotto pubblicato" on public.product_images;
+drop policy if exists "featured leggibili se prodotto pubblicato" on public.featured_products;
+drop policy if exists "reviews pubblicate leggibili" on public.reviews;
+drop policy if exists "lookup tabelle di rif" on public.games;
+drop policy if exists "lookup tabelle di rif types" on public.product_types;
+drop policy if exists "settings leggibili" on public.site_settings;
+
+-- Crea le policy
 create policy "prodotti pubblicati leggibili"
 on public.products
 for select

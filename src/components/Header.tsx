@@ -1,37 +1,28 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ShoppingBag, Menu, X } from 'lucide-react';
-import { mockAuth } from '@/lib/mockAuth';
-import { useToast } from '@/hooks/use-toast';
 import { useSelection } from '@/contexts/SelectionContext';
 import SelectionDrawer from '@/components/SelectionDrawer';
 
 const Header = () => {
-  const navigate = useNavigate();
-  const { toast } = useToast();
-  const isAuthenticated = mockAuth.isAuthenticated();
   const { selection } = useSelection();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  const handleLogout = async () => {
-    await mockAuth.logout();
-    toast({
-      title: "Logout effettuato",
-      description: "Alla prossima!",
-    });
-    navigate('/', { replace: true });
-  };
 
   return (
     <>
       <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4">
           <div className="flex h-16 items-center justify-between">
-            <Link to="/" className="flex items-center space-x-2">
-              <span className="text-lg md:text-xl font-bold tracking-tight">my-tcg.it</span>
+            <Link to="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
+              <img 
+                src="/logo.svg" 
+                alt="my-tcg.it" 
+                className="h-8 w-8 md:h-10 md:w-10"
+              />
+              <span className="text-lg md:text-xl font-bold tracking-tight hidden sm:inline">my-tcg.it</span>
             </Link>
             
             <nav className="hidden md:flex items-center space-x-4 lg:space-x-6">

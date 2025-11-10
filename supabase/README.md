@@ -7,8 +7,10 @@ Questo progetto utilizza Supabase come database backend per prodotti, recensioni
 ```
 Supabase/
 └─ Migrations/
-   ├─ 2025-11-10_init.sql      # Schema iniziale (tabelle, enum, trigger)
-   └─ 2025-11-10_policies.sql   # RLS (Row Level Security) e policy pubbliche
+   ├─ 2025-11-10_init.sql           # Schema iniziale (tabelle, enum, trigger)
+   ├─ 2025-11-10_policies.sql       # RLS (Row Level Security) e policy pubbliche
+   ├─ 2025-11-10_admin_policies.sql # Policy per utenti autenticati (admin)
+   └─ 2025-11-10_add_other_game.sql # Aggiunge game "other" se non esiste
 ```
 
 ## Setup
@@ -23,8 +25,14 @@ Supabase/
 
 #### Opzione A: Via Dashboard Supabase
 1. Vai su SQL Editor nel dashboard Supabase
-2. Esegui `2025-11-10_init.sql` prima
-3. Poi esegui `2025-11-10_policies.sql`
+2. Esegui le migrazioni in questo ordine:
+   - `2025-11-10_init.sql` (schema iniziale)
+   - `2025-11-10_policies.sql` (policy pubbliche)
+   - `2025-11-10_admin_policies.sql` (policy admin)
+   - `2025-11-10_add_other_game.sql` (game "other")
+
+**Nota:** Gli script sono idempotenti (possono essere eseguiti più volte senza errori). 
+Se ricevi errori di policy già esistenti, è sicuro ri-eseguire gli script - le policy verranno ricreate.
 
 #### Opzione B: Via CLI Supabase
 ```bash
@@ -79,7 +87,8 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 ### RLS (Row Level Security)
 
 - **Pubblico (anon)**: può solo leggere prodotti pubblicati e recensioni pubblicate
-- **Service Role**: può creare/modificare/eliminare (usato dal backend)
+- **Authenticated (utenti loggati)**: possono creare/modificare/eliminare prodotti e recensioni (admin)
+- **Service Role**: può fare tutto (usato dal backend/server)
 
 ## Utilizzo
 
@@ -121,8 +130,9 @@ Esempio:
 
 ## Note
 
-- Le migrazioni sono idempotenti (usano `IF NOT EXISTS`)
+- Le migrazioni sono idempotenti (usano `IF NOT EXISTS` e `DROP POLICY IF EXISTS`)
 - Le policy RLS sono configurate per accesso pubblico in sola lettura
-- Le operazioni di scrittura richiedono Service Role Key
+- Le operazioni di scrittura richiedono autenticazione (utenti autenticati) o Service Role Key
 - Il database è ottimizzato per query pubbliche (indici su `published`, `status`, etc.)
+- **Se ricevi errori "policy already exists"**: ri-esegui lo script - le policy verranno ricreate correttamente
 

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -24,8 +25,8 @@ import {
 } from '@/components/ui/select';
 import { Plus, Edit, Trash2, ArrowLeft, Eye, EyeOff, Star, LogOut, Upload } from 'lucide-react';
 import {
-  getAllReviews,
   getAllReviewsSync,
+  getAllReviews,
   addReview,
   updateReview,
   deleteReview,
@@ -34,17 +35,36 @@ import {
   ReviewPlatform,
 } from '@/lib/reviews';
 import { useToast } from '@/hooks/use-toast';
-import { mockAuth } from '@/lib/mockAuth';
+import { auth } from '@/lib/auth';
 import ProtectedRoute from '@/components/ProtectedRoute';
 
 const AdminReviews = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const [reviews, setReviews] = useState<Review[]>(getAllReviewsSync());
+  const location = useLocation();
+  const queryClient = useQueryClient();
   const [editingReview, setEditingReview] = useState<Review | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // React Query per caricare le recensioni
+  const { data: reviews = getAllReviewsSync(), isLoading, refetch } = useQuery({
+    queryKey: ['admin-reviews'],
+    queryFn: async () => {
+      // Carica le recensioni (usa il cache in memoria se disponibile)
+      return await getAllReviews();
+    },
+    staleTime: 0, // Sempre considera i dati stale per refetch immediato
+    initialData: getAllReviewsSync(), // Dati iniziali sincroni
+  });
+
+  // Refetch quando si torna alla pagina recensioni
+  useEffect(() => {
+    if (location.pathname === '/dashboard/recensioni') {
+      refetch();
+    }
+  }, [location.pathname, refetch]);
 
   const [formData, setFormData] = useState({
     platform: 'Vinted' as ReviewPlatform,
@@ -57,17 +77,8 @@ const AdminReviews = () => {
     published: true,
   });
 
-  // Load reviews on mount
-  useEffect(() => {
-    const loadReviews = async () => {
-      const loadedReviews = await getAllReviews();
-      setReviews(loadedReviews);
-    };
-    loadReviews();
-  }, []);
-
   const handleLogout = async () => {
-    await mockAuth.logout();
+    await auth.signOut();
     toast({
       title: 'Logout effettuato',
       description: 'Alla prossima!',
@@ -89,33 +100,51 @@ const AdminReviews = () => {
     setEditingReview(null);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Mutation per create/update review
+  const saveReviewMutation = useMutation({
+    mutationFn: async (data: { id?: string; review: Omit<Review, 'id'> }) => {
+      if (data.id) {
+        updateReview(data.id, data.review);
+        return true;
+      } else {
+        addReview(data.review);
+        return true;
+      }
+    },
+    onSuccess: (_, variables) => {
+      // Invalida la query per refetch automatico
+      queryClient.invalidateQueries({ queryKey: ['admin-reviews'] });
+      toast({
+        title: variables.id ? 'Recensione aggiornata' : 'Recensione aggiunta',
+        description: variables.id 
+          ? 'La recensione è stata modificata con successo'
+          : 'La nuova recensione è stata creata con successo',
+      });
+      resetForm();
+      setIsDialogOpen(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Errore',
+        description: error.message || 'Impossibile salvare la recensione',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (editingReview) {
-      updateReview(editingReview.id, {
-        ...formData,
-        date: new Date(formData.date),
-      });
-      toast({
-        title: 'Recensione aggiornata',
-        description: 'La recensione è stata modificata con successo',
-      });
-    } else {
-      addReview({
-        ...formData,
-        date: new Date(formData.date),
-      });
-      toast({
-        title: 'Recensione aggiunta',
-        description: 'La nuova recensione è stata creata con successo',
-      });
-    }
+    const reviewData = {
+      ...formData,
+      date: new Date(formData.date),
+    };
 
-    resetForm();
-    setIsDialogOpen(false);
-    // Reload reviews
-    setReviews(getAllReviewsSync());
+    if (editingReview) {
+      saveReviewMutation.mutate({ id: editingReview.id, review: reviewData });
+    } else {
+      saveReviewMutation.mutate({ review: reviewData });
+    }
   };
 
   const handleEdit = (review: Review) => {
@@ -133,27 +162,99 @@ const AdminReviews = () => {
     setIsDialogOpen(true);
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Sei sicuro di voler eliminare questa recensione?')) {
-      deleteReview(id);
+  // Mutation per delete review
+  const deleteReviewMutation = useMutation({
+    mutationFn: deleteReview,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-reviews'] });
       toast({
         title: 'Recensione eliminata',
         description: 'La recensione è stata rimossa con successo',
       });
-      // Reload reviews
-      setReviews(getAllReviewsSync());
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Errore',
+        description: error.message || 'Impossibile eliminare la recensione',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  // Mutation per toggle published
+  const togglePublishedMutation = useMutation({
+    mutationFn: toggleReviewPublished,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-reviews'] });
+      toast({
+        title: 'Stato aggiornato',
+        description: 'Lo stato di pubblicazione è stato modificato',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Errore',
+        description: error.message || 'Impossibile aggiornare lo stato',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const handleDelete = async (id: string) => {
+    if (confirm('Sei sicuro di voler eliminare questa recensione?')) {
+      deleteReviewMutation.mutate(id);
     }
   };
 
-  const handleTogglePublished = (id: string) => {
-    toggleReviewPublished(id);
-    toast({
-      title: 'Stato aggiornato',
-      description: 'Lo stato di pubblicazione è stato modificato',
-    });
-    // Reload reviews
-    setReviews(getAllReviewsSync());
+  const handleTogglePublished = async (id: string) => {
+    togglePublishedMutation.mutate(id);
   };
+
+  // Mutation per import CSV
+  const importCSVMutation = useMutation({
+    mutationFn: async (csv: string) => {
+      const lines = csv.split('\n');
+      const dataLines = lines.slice(1).filter(line => line.trim());
+      
+      let imported = 0;
+      dataLines.forEach(line => {
+        const columns = line.split(',').map(col => col.trim().replace(/^"|"$/g, ''));
+        
+        if (columns.length >= 7) {
+          const [platform, rating, title, text, author, date, published, screenshotUrl] = columns;
+          
+          addReview({
+            platform: platform as ReviewPlatform,
+            rating: parseInt(rating) as 1 | 2 | 3 | 4 | 5,
+            title,
+            text,
+            author,
+            date: new Date(date),
+            published: published.toLowerCase() === 'true' || published === '1',
+            screenshotUrl: screenshotUrl || undefined,
+          });
+          imported++;
+        }
+      });
+      
+      return imported;
+    },
+    onSuccess: (imported) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-reviews'] });
+      toast({
+        title: 'Import completato',
+        description: `${imported} recensioni importate con successo`,
+      });
+      setIsImportDialogOpen(false);
+    },
+    onError: () => {
+      toast({
+        title: 'Errore import',
+        description: 'Formato CSV non valido',
+        variant: 'destructive',
+      });
+    },
+  });
 
   const handleImportCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -163,40 +264,7 @@ const AdminReviews = () => {
     reader.onload = (event) => {
       try {
         const csv = event.target?.result as string;
-        const lines = csv.split('\n');
-        
-        // Skip header row
-        const dataLines = lines.slice(1).filter(line => line.trim());
-        
-        let imported = 0;
-        dataLines.forEach(line => {
-          const columns = line.split(',').map(col => col.trim().replace(/^"|"$/g, ''));
-          
-          if (columns.length >= 7) {
-            const [platform, rating, title, text, author, date, published, screenshotUrl] = columns;
-            
-            addReview({
-              platform: platform as ReviewPlatform,
-              rating: parseInt(rating) as 1 | 2 | 3 | 4 | 5,
-              title,
-              text,
-              author,
-              date: new Date(date),
-              published: published.toLowerCase() === 'true' || published === '1',
-              screenshotUrl: screenshotUrl || undefined,
-            });
-            imported++;
-          }
-        });
-
-        toast({
-          title: 'Import completato',
-          description: `${imported} recensioni importate con successo`,
-        });
-        
-        setIsImportDialogOpen(false);
-        // Reload reviews
-        setReviews(getAllReviewsSync());
+        importCSVMutation.mutate(csv);
       } catch (error) {
         toast({
           title: 'Errore import',
@@ -235,7 +303,7 @@ const AdminReviews = () => {
             <div className="flex h-16 items-center justify-between">
               <div className="flex items-center gap-4">
                 <Button variant="ghost" size="sm" asChild>
-                  <Link to="/admin">
+                  <Link to="/dashboard">
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     Dashboard
                   </Link>
@@ -263,9 +331,7 @@ const AdminReviews = () => {
                         <strong>Formato date:</strong> YYYY-MM-DD (es. 2024-01-15)<br />
                         <strong>Platform:</strong> Vinted, CardTrader, o Wallapop<br />
                         <strong>Rating:</strong> numero da 1 a 5<br />
-                        <strong>Published:</strong> true o false<br />
-                        <br />
-                        <strong>⚠️ Nota:</strong> Le modifiche sono solo in memoria e vengono perse al refresh. Per persistenza, integra con Supabase.
+                        <strong>Published:</strong> true o false
                       </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4">
@@ -483,7 +549,11 @@ const AdminReviews = () => {
 
           {/* Reviews List */}
           <div className="space-y-4">
-            {reviews.length === 0 ? (
+            {isLoading ? (
+              <Card className="p-12 text-center">
+                <p className="text-muted-foreground">Caricamento...</p>
+              </Card>
+            ) : reviews.length === 0 ? (
               <Card className="p-12 text-center">
                 <p className="text-muted-foreground">Nessuna recensione presente</p>
               </Card>
@@ -580,3 +650,4 @@ const AdminReviews = () => {
 };
 
 export default AdminReviews;
+

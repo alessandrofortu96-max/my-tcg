@@ -14,6 +14,7 @@ import Reviews from "./pages/Reviews";
 import Login from "./pages/Login";
 import Admin from "./pages/Admin";
 import AdminReviews from "./pages/AdminReviews";
+import AdminProductForm from "./pages/AdminProductForm";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import CookiePolicy from "./pages/CookiePolicy";
 import NotaLegale from "./pages/NotaLegale";
@@ -37,8 +38,10 @@ const App = () => (
             <Route path="/contatti" element={<Contact />} />
             <Route path="/recensioni" element={<Reviews />} />
             <Route path="/login" element={<Login />} />
-            <Route path="/admin" element={<Admin />} />
-            <Route path="/admin/recensioni" element={<AdminReviews />} />
+            <Route path="/dashboard" element={<Admin />} />
+            <Route path="/dashboard/recensioni" element={<AdminReviews />} />
+            <Route path="/dashboard/prodotti/nuovo" element={<AdminProductForm />} />
+            <Route path="/dashboard/prodotti/:id/modifica" element={<AdminProductForm />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/cookie-policy" element={<CookiePolicy />} />
             <Route path="/nota-legale" element={<NotaLegale />} />

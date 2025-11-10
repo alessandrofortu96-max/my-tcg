@@ -4,9 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
-import { Lock, ArrowLeft, Copy, AlertCircle } from 'lucide-react';
+import { Lock, ArrowLeft, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { mockAuth, MOCK_CREDENTIALS } from '@/lib/mockAuth';
+import { auth } from '@/lib/auth';
+import { isSupabaseConfigured } from '@/lib/supabase';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const Login = () => {
@@ -20,16 +21,22 @@ const Login = () => {
 
   // Redirect se già loggato
   useEffect(() => {
-    if (mockAuth.isAuthenticated()) {
-      navigate('/admin', { replace: true });
-    }
+    const checkAuth = async () => {
+      if (isSupabaseConfigured()) {
+        const isAuth = await auth.isAuthenticated();
+        if (isAuth) {
+          navigate('/dashboard', { replace: true });
+        }
+      }
+    };
+    checkAuth();
   }, [navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    const { user, error } = await mockAuth.login(formData.email, formData.password);
+    const { user, error } = await auth.signIn(formData.email, formData.password);
 
     if (error) {
       toast({
@@ -46,18 +53,10 @@ const Login = () => {
         title: "Login effettuato",
         description: "Benvenuto nell'area riservata",
       });
-      navigate('/admin', { replace: true });
+      navigate('/dashboard', { replace: true });
     }
 
     setIsLoading(false);
-  };
-
-  const copyToClipboard = (text: string, label: string) => {
-    navigator.clipboard.writeText(text);
-    toast({
-      title: "Copiato!",
-      description: `${label} copiato negli appunti`,
-    });
   };
 
   return (
@@ -85,43 +84,18 @@ const Login = () => {
           </p>
         </div>
 
-        {/* Credenziali di test */}
-        <Alert className="border-primary/20 bg-primary/5">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            <p className="font-semibold mb-2">🧪 Credenziali di test (mock auth)</p>
-            <div className="space-y-2 text-sm">
-              <div className="flex items-center justify-between gap-2 bg-background/50 rounded px-3 py-2">
-                <span className="text-muted-foreground">Email:</span>
-                <div className="flex items-center gap-2">
-                  <code className="font-mono">{MOCK_CREDENTIALS.email}</code>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0"
-                    onClick={() => copyToClipboard(MOCK_CREDENTIALS.email, 'Email')}
-                  >
-                    <Copy className="h-3 w-3" />
-                  </Button>
-                </div>
-              </div>
-              <div className="flex items-center justify-between gap-2 bg-background/50 rounded px-3 py-2">
-                <span className="text-muted-foreground">Password:</span>
-                <div className="flex items-center gap-2">
-                  <code className="font-mono">{MOCK_CREDENTIALS.password}</code>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0"
-                    onClick={() => copyToClipboard(MOCK_CREDENTIALS.password, 'Password')}
-                  >
-                    <Copy className="h-3 w-3" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </AlertDescription>
-        </Alert>
+        {!isSupabaseConfigured() && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Supabase non configurato</strong>
+              <p className="mt-2 text-sm">
+                Le variabili d'ambiente VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY non sono configurate.
+                Controlla il file .env.local e riavvia il server di sviluppo.
+              </p>
+            </AlertDescription>
+          </Alert>
+        )}
 
         <Card className="p-8">
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -170,16 +144,10 @@ const Login = () => {
             </p>
           </div>
         </Card>
-
-        <Card className="p-4 bg-accent/50 border-border">
-          <p className="text-xs text-center text-muted-foreground">
-            ℹ️ Questa è una simulazione. I dati sono salvati in localStorage.<br />
-            Per l'autenticazione con database, implementare un sistema di autenticazione appropriato.
-          </p>
-        </Card>
       </div>
     </div>
   );
 };
 
 export default Login;
+

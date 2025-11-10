@@ -1,25 +1,16 @@
 {
-  "name": "my-tcg",
+  "name": "vite_react_shadcn_ts",
   "private": true,
-  "version": "1.0.0",
+  "version": "0.0.0",
   "type": "module",
-  "description": "Liquidazione Collezione TCG Privata - Carte RAW, gradate e prodotti sigillati di Pokémon, Yu-Gi-Oh! e One Piece",
-  "homepage": "https://my-tcg.it",
-  "author": "Alessandro Fortunato <info@my-tcg.it>",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/yourusername/my-tcg.git"
-  },
-  "bugs": {
-    "url": "https://github.com/yourusername/my-tcg/issues"
-  },
-  "license": "MIT",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "generate-favicons": "node scripts/generate-favicons.cjs",
+    "create-favicon": "node scripts/create-favicon-ico.cjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -50,6 +41,7 @@
     "@radix-ui/react-toggle": "^1.1.9",
     "@radix-ui/react-toggle-group": "^1.1.10",
     "@radix-ui/react-tooltip": "^1.2.7",
+    "@supabase/supabase-js": "^2.81.0",
     "@tanstack/react-query": "^5.83.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -84,7 +76,9 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^15.15.0",
+    "lovable-tagger": "^1.1.11",
     "postcss": "^8.5.6",
+    "sharp": "^0.34.5",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.38.0",

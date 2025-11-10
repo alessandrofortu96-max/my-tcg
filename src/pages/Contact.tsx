@@ -1,5 +1,5 @@
 import { useSearchParams, Link } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
@@ -9,12 +9,33 @@ import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { Send, Mail } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { mockProducts } from '@/lib/mockData';
+import { getProductById } from '@/lib/products';
+import { Product } from '@/lib/types';
 
 const Contact = () => {
   const [searchParams] = useSearchParams();
   const productId = searchParams.get('product');
-  const product = productId ? mockProducts.find(p => p.id === productId) : null;
+  const [product, setProduct] = useState<Product | null>(null);
+  const [isLoadingProduct, setIsLoadingProduct] = useState(!!productId);
+  
+  useEffect(() => {
+    const loadProduct = async () => {
+      if (!productId) {
+        setIsLoadingProduct(false);
+        return;
+      }
+      const loadedProduct = await getProductById(productId);
+      setProduct(loadedProduct);
+      setIsLoadingProduct(false);
+      if (loadedProduct) {
+        setFormData(prev => ({
+          ...prev,
+          message: `Ciao! Sono interessato a: ${loadedProduct.name}`,
+        }));
+      }
+    };
+    loadProduct();
+  }, [productId]);
   
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -22,7 +43,7 @@ const Contact = () => {
     name: '',
     email: '',
     phone: '',
-    message: product ? `Ciao! Sono interessato a: ${product.name}` : '',
+    message: '',
     honeypot: '', // Anti-bot field
   });
 
@@ -55,29 +76,29 @@ const Contact = () => {
       
       <main className="flex-1">
         <section className="border-b border-border bg-premium-gradient">
-          <div className="container mx-auto px-4 py-12 sm:py-16 md:py-24">
-            <div className="max-w-3xl mx-auto text-center space-y-3 sm:space-y-4">
-              <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight">
+          <div className="container mx-auto px-4 py-12 sm:py-16 md:py-20 lg:py-24">
+            <div className="max-w-3xl mx-auto text-center space-y-4 sm:space-y-6">
+              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight leading-tight">
                 Contatti
               </h1>
-              <p className="text-base sm:text-lg text-muted-foreground px-4">
+              <p className="text-base sm:text-lg md:text-xl text-muted-foreground leading-relaxed px-4 font-medium">
                 Scrivimi per qualsiasi domanda o per acquistare una carta
               </p>
             </div>
           </div>
         </section>
 
-        <section className="py-12 sm:py-16 md:py-24">
+        <section className="py-12 sm:py-16 md:py-24 bg-accent/30">
           <div className="container mx-auto px-4">
             <div className="max-w-2xl mx-auto space-y-6 sm:space-y-8">
               {/* Telegram CTA */}
-              <Card className="p-8 bg-primary text-primary-foreground">
+              <Card className="p-6 sm:p-8 bg-primary text-primary-foreground">
                 <div className="flex flex-col md:flex-row items-center justify-between gap-6">
                   <div className="flex-1 text-center md:text-left">
-                    <h3 className="text-xl font-semibold mb-2">
+                    <h3 className="text-lg sm:text-xl font-semibold mb-2">
                       Preferisci una risposta veloce?
                     </h3>
-                    <p className="opacity-90">
+                    <p className="text-sm sm:text-base opacity-90">
                       Contattami direttamente su Telegram per una chat istantanea
                     </p>
                   </div>
@@ -88,7 +109,7 @@ const Contact = () => {
                     className="flex-shrink-0"
                   >
                     <a 
-                      href={`https://t.me/yourusername${product ? `?text=Ciao! Sono interessato a: ${product.name}` : ''}`}
+                      href={`${import.meta.env.VITE_TELEGRAM_URL || 'https://t.me/yourusername'}${product ? `?text=Ciao! Sono interessato a: ${product.name}` : ''}`}
                       target="_blank" 
                       rel="noopener noreferrer"
                     >
@@ -100,13 +121,13 @@ const Contact = () => {
               </Card>
 
               {/* Email Form */}
-              <Card className="p-8">
+              <Card className="p-6 sm:p-8">
                 <div className="mb-6">
-                  <h3 className="text-2xl font-semibold mb-2 flex items-center gap-2">
-                    <Mail className="h-6 w-6" />
+                  <h3 className="text-xl sm:text-2xl font-semibold mb-2 flex items-center gap-2">
+                    <Mail className="h-5 w-5 sm:h-6 sm:w-6" />
                     Oppure inviami un'email
                   </h3>
-                  <p className="text-muted-foreground">
+                  <p className="text-sm sm:text-base text-muted-foreground">
                     Compila il modulo e ti risponderò entro 24 ore
                   </p>
                 </div>
@@ -192,7 +213,7 @@ const Contact = () => {
                 </form>
               </Card>
 
-              <p className="text-center text-sm text-muted-foreground">
+              <p className="text-center text-xs sm:text-sm text-muted-foreground">
                 Ti risponderò il prima possibile. I dati che mi invii vengono utilizzati solo per rispondere alla tua richiesta.
               </p>
             </div>

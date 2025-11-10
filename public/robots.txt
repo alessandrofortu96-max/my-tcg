@@ -4,8 +4,8 @@ Allow: /
 # Sitemap
 Sitemap: https://my-tcg.it/sitemap.xml
 
-# Disallow admin and login pages
-Disallow: /admin
+# Disallow dashboard and login pages
+Disallow: /dashboard
 Disallow: /login
 
 # Allow all public pages

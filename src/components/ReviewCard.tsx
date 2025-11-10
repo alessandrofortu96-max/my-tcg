@@ -45,31 +45,31 @@ const ReviewCard = ({ review, compact = false }: ReviewCardProps) => {
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
             {renderStars(review.rating)}
-            <h3 className="font-semibold text-base sm:text-lg mt-2 line-clamp-1">
+            <h3 className="text-base sm:text-lg font-semibold mt-2 line-clamp-1">
               {review.title}
             </h3>
           </div>
-          <Badge variant="secondary" className="text-xs whitespace-nowrap">
+          <Badge variant="secondary" className="text-xs whitespace-nowrap flex-shrink-0">
             {review.platform}
           </Badge>
         </div>
 
-        <p className={`text-sm text-muted-foreground leading-relaxed ${compact ? 'line-clamp-2' : ''}`}>
+        <p className={`text-sm sm:text-base text-muted-foreground leading-relaxed ${compact ? 'line-clamp-2' : ''}`}>
           {review.text}
         </p>
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-border">
           <div className="text-xs sm:text-sm text-muted-foreground space-y-1">
-            <div className="font-medium">{review.author}</div>
+            <div className="font-medium text-foreground">{review.author}</div>
             <div>{formatDate(review.date)}</div>
           </div>
 
           {review.screenshotUrl && !compact && (
             <Dialog>
               <DialogTrigger asChild>
-                <Button variant="outline" size="sm" className="text-xs transition-smooth w-full sm:w-auto">
-                  <ExternalLink className="mr-2 h-3 w-3" />
-                  Vedi originale (screenshot)
+                <Button variant="outline" size="sm" className="transition-smooth w-full sm:w-auto">
+                  <ExternalLink className="mr-2 h-3.5 w-3.5" />
+                  Vedi originale
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-3xl">

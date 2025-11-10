@@ -92,21 +92,26 @@ my-tcg/
 - **Pagine prodotto** - Dettagli completi con immagini
 - **Recensioni** - Sistema di recensioni da file JSON locale
 - **Contatti** - Modulo email e link Telegram
-- **Dashboard Admin** - Gestione prodotti e recensioni (area riservata)
 
 ## 🔧 Configurazione
 
 ### Variabili d'ambiente
 
-Crea un file `.env` nella root del progetto (opzionale):
+Crea un file `.env.local` nella root del progetto:
 
 ```env
-# Telegram
-NEXT_PUBLIC_TELEGRAM_URL=https://t.me/yourusername
+# Supabase (obbligatorio per autenticazione)
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
 
-# Email (per modulo contatti)
-CONTACT_TO=info@my-tcg.it
+# Telegram (opzionale)
+VITE_TELEGRAM_URL=https://t.me/yourusername
+
+# Email (opzionale, per modulo contatti)
+VITE_CONTACT_EMAIL=info@my-tcg.it
 ```
+
+**Nota:** In Vite, le variabili d'ambiente pubbliche devono avere il prefisso `VITE_`. Non usare `NEXT_PUBLIC_` (quello è per Next.js).
 
 ### Selezione/Lotto
 

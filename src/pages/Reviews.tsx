@@ -56,26 +56,26 @@ const Reviews = () => {
       <main className="flex-1">
         {/* Hero */}
         <section className="border-b border-border bg-premium-gradient">
-          <div className="container mx-auto px-4 py-12 sm:py-16 md:py-20">
+          <div className="container mx-auto px-4 py-12 sm:py-16 md:py-20 lg:py-24">
             <div className="max-w-3xl mx-auto text-center space-y-4 sm:space-y-6">
-              <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight">
-                Recensioni verificate (esterne)
+              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight leading-tight">
+                Recensioni verificate
               </h1>
               
               {/* Stats */}
               {getTotalReviewsCount() > 0 && (
                 <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4">
-                  <Badge variant="outline" className="text-base sm:text-lg px-4 py-2">
-                    <Star className="h-4 w-4 sm:h-5 sm:w-5 mr-2 fill-primary text-primary" />
+                  <Badge variant="outline" className="text-sm sm:text-base px-4 py-2">
+                    <Star className="h-4 w-4 mr-2 fill-primary text-primary" />
                     {getAverageRating()}/5
                   </Badge>
-                  <Badge variant="outline" className="text-base sm:text-lg px-4 py-2">
+                  <Badge variant="outline" className="text-sm sm:text-base px-4 py-2">
                     {getTotalReviewsCount()} recensioni
                   </Badge>
                 </div>
               )}
               
-              <p className="text-sm sm:text-base md:text-lg text-muted-foreground leading-relaxed px-4">
+              <p className="text-base sm:text-lg md:text-xl text-muted-foreground leading-relaxed px-4 font-medium">
                 Selezione di feedback ricevuti su piattaforme terze. Ogni recensione riporta un link allo screenshot dell'originale. Username e date sono ripresi dalla fonte.
               </p>
             </div>
@@ -83,11 +83,11 @@ const Reviews = () => {
         </section>
 
         {/* Filters */}
-        <section className="border-b border-border bg-background">
+        <section className="border-b border-border bg-accent/30">
           <div className="container mx-auto px-4 py-6 sm:py-8">
-            <div className="flex flex-col gap-4">
+            <div className="max-w-4xl mx-auto flex flex-col gap-4">
               <div>
-                <h3 className="text-xs sm:text-sm font-medium mb-3 text-muted-foreground">
+                <h3 className="text-sm sm:text-base font-medium mb-3 text-foreground">
                   Piattaforma
                 </h3>
                 <div className="flex flex-wrap gap-2">
@@ -119,7 +119,7 @@ const Reviews = () => {
               </div>
 
               <div>
-                <h3 className="text-xs sm:text-sm font-medium mb-3 text-muted-foreground">
+                <h3 className="text-sm sm:text-base font-medium mb-3 text-foreground">
                   Valutazione
                 </h3>
                 <div className="flex flex-wrap gap-2">
@@ -150,12 +150,14 @@ const Reviews = () => {
         </section>
 
         {/* Reviews List */}
-        <section className="py-12 sm:py-16 md:py-24">
+        <section className="py-12 sm:py-16 md:py-24 bg-background">
           <div className="container mx-auto px-4">
             <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
               {filteredReviews.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  Nessuna recensione trovata con i filtri selezionati.
+                <div className="text-center py-12">
+                  <p className="text-sm sm:text-base text-muted-foreground">
+                    Nessuna recensione trovata con i filtri selezionati.
+                  </p>
                 </div>
               ) : (
                 filteredReviews.map((review) => (

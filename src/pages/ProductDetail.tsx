@@ -1,5 +1,5 @@
 import { useParams, Link } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ContactModal from '@/components/ContactModal';
@@ -7,15 +7,32 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { ArrowLeft, Send, Mail, Package, CreditCard, Shield, Plus, Check } from 'lucide-react';
-import { mockProducts, gameNames, conditionNames } from '@/lib/mockData';
+import { getProductById } from '@/lib/products';
+import { gameNames, conditionNames } from '@/lib/constants';
+import { Product } from '@/lib/types';
 import { useSelection } from '@/contexts/SelectionContext';
 
 const ProductDetail = () => {
   const { id } = useParams<{ id: string }>();
-  const product = mockProducts.find(p => p.id === id);
+  const [product, setProduct] = useState<Product | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState(0);
   const [contactModalOpen, setContactModalOpen] = useState(false);
   const { addToSelection, removeFromSelection, isInSelection } = useSelection();
+  
+  useEffect(() => {
+    const loadProduct = async () => {
+      if (!id) {
+        setIsLoading(false);
+        return;
+      }
+      setIsLoading(true);
+      const loadedProduct = await getProductById(id);
+      setProduct(loadedProduct);
+      setIsLoading(false);
+    };
+    loadProduct();
+  }, [id]);
   
   const inSelection = product ? isInSelection(product.id) : false;
   const isSold = product?.status === 'sold';
@@ -29,6 +46,20 @@ const ProductDetail = () => {
       addToSelection(product);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <main className="flex-1 flex items-center justify-center">
+          <div className="text-center space-y-4">
+            <p className="text-muted-foreground">Caricamento prodotto...</p>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   if (!product) {
     return (

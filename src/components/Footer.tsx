@@ -27,16 +27,16 @@ const Footer = () => {
   ];
 
   return (
-    <footer className="border-t border-border bg-background">
+    <footer className="border-t border-border bg-accent/30">
       <div className="container mx-auto px-4 py-8 sm:py-12">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 mb-8 sm:mb-12">
           {trustItems.map((item, index) => (
             <div key={index} className="flex flex-col items-center text-center space-y-3">
-              <div className="p-3 rounded-lg bg-accent">
+              <div className="p-3 rounded-lg bg-background">
                 <item.icon className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
               </div>
-              <h3 className="font-semibold text-sm">{item.title}</h3>
-              <p className="text-xs text-muted-foreground leading-relaxed">
+              <h3 className="text-base sm:text-lg font-semibold">{item.title}</h3>
+              <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
                 {item.description}
               </p>
             </div>

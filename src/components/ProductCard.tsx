@@ -3,7 +3,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Product } from '@/lib/types';
-import { gameNames } from '@/lib/mockData';
+import { gameNames } from '@/lib/constants';
 import { useSelection } from '@/contexts/SelectionContext';
 import { Plus, Check } from 'lucide-react';
 
@@ -40,7 +40,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
       </Link>
       
       <div className="p-4 space-y-3">
-        <div className="space-y-1">
+        <div className="space-y-1.5">
           <div className="flex items-center gap-2 mb-2 flex-wrap">
             <Badge variant="outline" className="text-xs">
               {gameNames[product.game]}
@@ -53,12 +53,12 @@ const ProductCard = ({ product }: ProductCardProps) => {
           </div>
           
           <Link to={`/prodotto/${product.id}`}>
-            <h3 className="font-semibold text-sm sm:text-base leading-tight transition-smooth group-hover:text-primary line-clamp-2">
+            <h3 className="text-base sm:text-lg font-semibold leading-tight transition-smooth group-hover:text-primary line-clamp-2">
               {product.name}
             </h3>
           </Link>
           
-          <p className="text-xs text-muted-foreground line-clamp-1">
+          <p className="text-xs sm:text-sm text-muted-foreground line-clamp-1">
             {product.set} • {product.cardCode}
           </p>
         </div>
@@ -73,18 +73,18 @@ const ProductCard = ({ product }: ProductCardProps) => {
             size="sm" 
             onClick={handleToggleSelection}
             disabled={isSold}
-            className="transition-smooth w-full sm:w-auto text-xs"
+            className="transition-smooth w-full sm:w-auto"
           >
             {isSold ? (
               'Non disponibile'
             ) : inSelection ? (
               <>
-                <Check className="mr-1 h-3 w-3" />
+                <Check className="mr-1.5 h-3.5 w-3.5" />
                 In selezione
               </>
             ) : (
               <>
-                <Plus className="mr-1 h-3 w-3" />
+                <Plus className="mr-1.5 h-3.5 w-3.5" />
                 Aggiungi
               </>
             )}

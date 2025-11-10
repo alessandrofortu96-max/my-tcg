@@ -6,7 +6,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { X, Copy, Mail, Send, Trash2 } from 'lucide-react';
-import { gameNames, conditionNames } from '@/lib/mockData';
+import { gameNames, conditionNames } from '@/lib/constants';
 import { useToast } from '@/hooks/use-toast';
 
 interface SelectionDrawerProps {

@@ -1,7 +1,7 @@
 {
-  "name": "my-tcg.it - Liquidazione Collezione TCG Privata",
-  "short_name": "my-tcg.it",
-  "description": "Carte RAW, gradate e prodotti sigillati di Pokémon, Yu-Gi-Oh! e One Piece",
+  "name": "My-TCG: carte da collezione",
+  "short_name": "My-TCG",
+  "description": "Selezione curata di carte TCG: RAW, graded e prodotti sigillati",
   "icons": [
     {
       "src": "/favicon-192x192.png",

@@ -46,10 +46,21 @@ export default defineConfig({
         manualChunks: (id) => {
           // Separare vendor chunks per miglior caching
           if (id.includes('node_modules')) {
-            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
-              return 'react-vendor';
+            // IMPORTANTE: React, react-dom, react-router, @tanstack/react-query devono rimanere nel bundle principale
+            // per evitare problemi di caricamento con createContext e altri hook React
+            // Non separare React e le sue dipendenze in chunk separati
+            if (
+              id.includes('react') || 
+              id.includes('react-dom') || 
+              id.includes('react-router') ||
+              id.includes('react/jsx-runtime') ||
+              id.includes('scheduler') ||
+              id.includes('@tanstack/react-query')
+            ) {
+              // Non creare un chunk separato per React e React Query, lasciali nel bundle principale
+              return undefined;
             }
-            if (id.includes('@radix-ui') || id.includes('@tanstack')) {
+            if (id.includes('@radix-ui')) {
               return 'ui-vendor';
             }
             if (id.includes('lucide-react')) {
@@ -70,5 +81,17 @@ export default defineConfig({
     // Ottimizzazioni CSS
     cssCodeSplit: true,
     cssMinify: true,
+  },
+  optimizeDeps: {
+    // Pre-bundle React e React Query per evitare problemi di caricamento
+    include: [
+      'react',
+      'react-dom',
+      'react/jsx-runtime',
+      'react-router-dom',
+      '@tanstack/react-query',
+    ],
+    // Escludi le API routes dal pre-bundling
+    exclude: ['@vercel/node'],
   },
 });

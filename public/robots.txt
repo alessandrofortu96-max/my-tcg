@@ -1,0 +1,20 @@
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://my-tcg.it/sitemap.xml
+
+# Disallow admin and login pages
+Disallow: /admin
+Disallow: /login
+
+# Allow all public pages
+Allow: /
+Allow: /prodotti
+Allow: /recensioni
+Allow: /contatti
+Allow: /categoria/
+Allow: /prodotto/
+Allow: /privacy-policy
+Allow: /cookie-policy
+Allow: /nota-legale

@@ -1,0 +1,69 @@
+[
+  {
+    "id": "1",
+    "platform": "Vinted",
+    "rating": 5,
+    "title": "Perfetto!",
+    "text": "Carte arrivate in condizioni perfette, imballaggio professionale. Venditore affidabile e preciso nella descrizione.",
+    "author": "@pokemon_collector",
+    "date": "2024-01-15",
+    "screenshotUrl": "/placeholder.svg",
+    "published": true
+  },
+  {
+    "id": "2",
+    "platform": "CardTrader",
+    "rating": 5,
+    "title": "Transazione eccellente",
+    "text": "Spedizione velocissima, carte in ottime condizioni come da descrizione. Consiglio vivamente!",
+    "author": "@yugioh_fan",
+    "date": "2024-01-10",
+    "screenshotUrl": "/placeholder.svg",
+    "published": true
+  },
+  {
+    "id": "3",
+    "platform": "Wallapop",
+    "rating": 5,
+    "title": "Molto soddisfatto",
+    "text": "Ottimo venditore, carte autentiche e ben protette durante la spedizione. Comunicazione chiara e veloce.",
+    "author": "@onepiece_trader",
+    "date": "2024-01-05",
+    "screenshotUrl": "/placeholder.svg",
+    "published": true
+  },
+  {
+    "id": "4",
+    "platform": "Vinted",
+    "rating": 5,
+    "title": "Venditore professionale",
+    "text": "Imballaggio perfetto, carte come descritte. Venditore molto disponibile e professionale. Top!",
+    "author": "@tcg_collector",
+    "date": "2023-12-20",
+    "screenshotUrl": "/placeholder.svg",
+    "published": true
+  },
+  {
+    "id": "5",
+    "platform": "CardTrader",
+    "rating": 4,
+    "title": "Buona esperienza",
+    "text": "Carte arrivati in buone condizioni, imballaggio adeguato. Venditore puntuale e disponibile.",
+    "author": "@card_trader",
+    "date": "2023-12-15",
+    "screenshotUrl": "/placeholder.svg",
+    "published": true
+  },
+  {
+    "id": "6",
+    "platform": "Wallapop",
+    "rating": 5,
+    "title": "Eccellente",
+    "text": "Spedizione rapida, carte perfette. Venditore molto serio e affidabile. Consigliatissimo!",
+    "author": "@collector_pro",
+    "date": "2023-12-10",
+    "screenshotUrl": "/placeholder.svg",
+    "published": true
+  }
+]
+

@@ -32,11 +32,11 @@ const Footer = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 mb-8 sm:mb-12">
           {trustItems.map((item, index) => (
             <div key={index} className="flex flex-col items-center text-center space-y-3">
-              <div className="p-3 rounded-lg bg-background">
-                <item.icon className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+              <div className="p-4 sm:p-4 rounded-lg bg-background">
+                <item.icon className="h-7 w-7 sm:h-6 sm:w-6 text-primary" />
               </div>
-              <h3 className="text-base sm:text-lg font-semibold">{item.title}</h3>
-              <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+              <h3 className="text-xl sm:text-lg md:text-xl font-semibold">{item.title}</h3>
+              <p className="text-base sm:text-base text-muted-foreground leading-relaxed">
                 {item.description}
               </p>
             </div>
@@ -49,9 +49,9 @@ const Footer = () => {
             <div className="text-center pb-4">
               <Link 
                 to="/recensioni"
-                className="inline-flex items-center gap-2 text-xs sm:text-sm text-muted-foreground hover:text-primary transition-smooth"
+                className="inline-flex items-center gap-2 text-sm sm:text-base text-muted-foreground hover:text-primary transition-smooth"
               >
-                <Star className="h-4 w-4 fill-primary text-primary" />
+                <Star className="h-5 w-5 fill-primary text-primary" />
                 <span>
                   {getAverageRating()}/5 su {getTotalReviewsCount()} recensioni – Vinted, CardTrader, Wallapop
                 </span>
@@ -61,13 +61,13 @@ const Footer = () => {
           )}
 
           <div className="max-w-3xl mx-auto text-center">
-            <p className="text-xs text-muted-foreground leading-relaxed px-4">
+            <p className="text-sm sm:text-base text-muted-foreground leading-relaxed px-4">
               <strong className="text-foreground">Vendita tra privati – cessione occasionale di beni personali.</strong><br />
               Questo sito presenta la mia collezione privata di carte TCG e facilita il contatto per trattative private. Non svolgo attività commerciale in forma organizzata, non acquisto merce da rivendere e non effettuo checkout online. I pagamenti avvengono off-site (es. PayPal/bonifico) dopo contatto diretto.
             </p>
           </div>
           
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 text-xs">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 text-sm sm:text-base">
             <Link to="/privacy-policy" className="text-muted-foreground hover:text-primary transition-smooth">
               Privacy
             </Link>
@@ -85,7 +85,7 @@ const Footer = () => {
             </Link>
           </div>
           
-          <p className="text-xs text-muted-foreground text-center">
+          <p className="text-sm sm:text-base text-muted-foreground text-center">
             © {new Date().getFullYear()} my-tcg.it - Tutti i diritti riservati
           </p>
         </div>

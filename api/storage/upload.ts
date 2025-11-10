@@ -32,19 +32,58 @@ export default async function handler(
 
     const supabase = createServerClient();
     
-    // Converte base64 a buffer se necessario
-    const fileBuffer = Buffer.from(file, 'base64');
+    // Converte base64 a buffer
+    let fileBuffer: Buffer;
+    try {
+      // Rimuovi il prefisso "data:..." se presente
+      const base64Data = file.includes(',') ? file.split(',')[1] : file;
+      fileBuffer = Buffer.from(base64Data, 'base64');
+    } catch (error) {
+      console.error('Error decoding base64:', error);
+      return res.status(400).json({ error: 'Invalid base64 file data' });
+    }
 
     // Upload su Supabase Storage (con SERVICE_ROLE_KEY bypassa RLS)
     const { data, error } = await supabase.storage
       .from(bucket)
       .upload(path, fileBuffer, {
         contentType: contentType || 'image/jpeg',
-        upsert: true,
+        upsert: false, // Non sovrascrivere file esistenti
+        cacheControl: '3600',
       });
 
     if (error) {
       console.error('Error uploading file:', error);
+      // Se il file esiste già, prova con un nome diverso
+      if (error.message?.includes('already exists') || error.message?.includes('duplicate')) {
+        const pathParts = path.split('/');
+        const fileName = pathParts[pathParts.length - 1];
+        const newFileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}-${fileName.split('-').slice(2).join('-')}`;
+        pathParts[pathParts.length - 1] = newFileName;
+        const newPath = pathParts.join('/');
+        
+        const { data: retryData, error: retryError } = await supabase.storage
+          .from(bucket)
+          .upload(newPath, fileBuffer, {
+            contentType: contentType || 'image/jpeg',
+            upsert: false,
+            cacheControl: '3600',
+          });
+        
+        if (retryError) {
+          return res.status(500).json({ error: retryError.message });
+        }
+        
+        const { data: { publicUrl } } = supabase.storage
+          .from(bucket)
+          .getPublicUrl(newPath);
+        
+        return res.status(200).json({
+          success: true,
+          path: retryData.path,
+          url: publicUrl,
+        });
+      }
       return res.status(500).json({ error: error.message });
     }
 

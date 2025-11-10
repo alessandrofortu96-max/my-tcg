@@ -74,49 +74,49 @@ const ProductList = () => {
       <Header />
       
       <main className="flex-1">
-        <section className="border-b border-border bg-premium-gradient">
-          <div className="container mx-auto px-4 py-16">
-            <div className="max-w-4xl mx-auto">
-              <Button variant="ghost" size="sm" asChild className="mb-6">
-                <Link to={game ? `/categoria/${game}` : '/'}>
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Indietro
-                </Link>
-              </Button>
-              
-              <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-2">
-                {title}
-              </h1>
-              <p className="text-muted-foreground">
-                {isLoading 
-                  ? 'Caricamento...' 
-                  : `${total} ${total === 1 ? 'prodotto' : 'prodotti'}${totalPages > 1 ? ` • Pagina ${page} di ${totalPages}` : ''}`
-                }
-              </p>
-            </div>
-          </div>
-        </section>
+                    <section className="border-b border-border bg-premium-gradient">
+                      <div className="container mx-auto px-4 py-8 sm:py-12 md:py-16">
+                        <div className="max-w-4xl mx-auto">
+                          <Button variant="ghost" size="sm" asChild className="mb-4 sm:mb-6">
+                            <Link to={game ? `/categoria/${game}` : '/'}>
+                              <ArrowLeft className="mr-2 h-4 w-4" />
+                              Indietro
+                            </Link>
+                          </Button>
+                          
+                          <h1 className="text-3xl sm:text-4xl md:text-4xl font-bold tracking-tight mb-2">
+                            {title}
+                          </h1>
+                          <p className="text-base sm:text-base text-muted-foreground">
+                            {isLoading 
+                              ? 'Caricamento...' 
+                              : `${total} ${total === 1 ? 'prodotto' : 'prodotti'}${totalPages > 1 ? ` • Pagina ${page} di ${totalPages}` : ''}`
+                            }
+                          </p>
+                        </div>
+                      </div>
+                    </section>
 
-        <section className="py-16">
-          <div className="container mx-auto px-4">
-            <div className="max-w-6xl mx-auto">
-              {isLoading ? (
-                <div className="text-center py-16">
-                  <p className="text-muted-foreground text-lg">Caricamento prodotti...</p>
-                </div>
-              ) : products.length === 0 ? (
-                <div className="text-center py-16">
-                  <p className="text-muted-foreground text-lg">
-                    Nessun prodotto trovato con questi filtri.
-                  </p>
-                </div>
-              ) : (
-                <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                    {products.map(product => (
-                      <ProductCard key={product.id} product={product} />
-                    ))}
-                  </div>
+                    <section className="py-8 sm:py-12 md:py-16">
+                      <div className="container mx-auto px-4">
+                        <div className="max-w-6xl mx-auto">
+                          {isLoading ? (
+                            <div className="text-center py-12 sm:py-16">
+                              <p className="text-muted-foreground text-base sm:text-lg">Caricamento prodotti...</p>
+                            </div>
+                          ) : products.length === 0 ? (
+                            <div className="text-center py-12 sm:py-16">
+                              <p className="text-muted-foreground text-base sm:text-lg">
+                                Nessun prodotto trovato con questi filtri.
+                              </p>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
+                                {products.map(product => (
+                                  <ProductCard key={product.id} product={product} />
+                                ))}
+                              </div>
 
                   {/* Pagination */}
                   {totalPages > 1 && (

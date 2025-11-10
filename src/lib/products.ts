@@ -54,48 +54,85 @@ const mapProductStatusToStatus = (status: ProductStatus): string => {
 };
 
 // Helper per convertire Product DB a Product TypeScript
+// NOTA: Questa funzione non è più usata, ma la manteniamo per riferimento
 const mapDbProductToProduct = async (dbProduct: any): Promise<Product> => {
-  // Carica game e type
-  const { data: game } = await supabase
-    .from('games')
-    .select('slug')
-    .eq('id', dbProduct.game_id)
-    .single();
+  // Carica game e type con gestione errori
+  let gameSlug = 'other';
+  try {
+    const { data: game, error: gameError } = await supabase
+      .from('games')
+      .select('slug')
+      .eq('id', dbProduct.game_id)
+      .maybeSingle();
+    
+    if (!gameError && game) {
+      gameSlug = game.slug;
+    }
+  } catch (error) {
+    console.warn('Error fetching game:', error);
+  }
 
-  const { data: type } = await supabase
-    .from('product_types')
-    .select('slug')
-    .eq('id', dbProduct.type_id)
-    .single();
+  let typeSlug = 'raw';
+  try {
+    const { data: type, error: typeError } = await supabase
+      .from('product_types')
+      .select('slug')
+      .eq('id', dbProduct.type_id)
+      .maybeSingle();
+    
+    if (!typeError && type) {
+      typeSlug = type.slug;
+    }
+  } catch (error) {
+    console.warn('Error fetching product type:', error);
+  }
 
-  // Carica immagini
-  const { data: images } = await supabase
-    .from('product_images')
-    .select('url')
-    .eq('product_id', dbProduct.id)
-    .order('sort_order', { ascending: true });
+  // Carica immagini con gestione errori
+  let images: string[] = [];
+  try {
+    const { data: imagesData, error: imagesError } = await supabase
+      .from('product_images')
+      .select('url')
+      .eq('product_id', dbProduct.id)
+      .order('sort_order', { ascending: true });
+    
+    if (!imagesError && imagesData) {
+      images = imagesData.map(img => img.url);
+    }
+  } catch (error) {
+    console.warn('Error fetching images:', error);
+  }
 
-  // Verifica se è featured
-  const { data: featured } = await supabase
-    .from('featured_products')
-    .select('product_id')
-    .eq('product_id', dbProduct.id)
-    .single();
+  // Verifica se è featured con gestione errori
+  let featured = false;
+  try {
+    const { data: featuredData, error: featuredError } = await supabase
+      .from('featured_products')
+      .select('product_id')
+      .eq('product_id', dbProduct.id)
+      .maybeSingle();
+    
+    if (!featuredError && featuredData) {
+      featured = true;
+    }
+  } catch (error) {
+    console.warn('Error checking featured status:', error);
+  }
 
   return {
     id: dbProduct.id,
     name: dbProduct.name,
-    game: mapGameSlugToGameType(game?.slug || 'other'),
-    type: mapTypeSlugToProductType(type?.slug || 'raw'),
+    game: mapGameSlugToGameType(gameSlug),
+    type: mapTypeSlugToProductType(typeSlug),
     set: dbProduct.set_name || '',
     cardCode: dbProduct.code || '',
     language: (dbProduct.language || 'ENG') as Language,
     condition: (dbProduct.condition || 'near-mint') as Condition,
     price: dbProduct.price_cents / 100,
-    images: images?.map(img => img.url) || [],
+    images: images,
     status: mapStatusToProductStatus(dbProduct.status),
     description: dbProduct.description || undefined,
-    featured: !!featured,
+    featured: featured,
     createdAt: new Date(dbProduct.created_at),
     updatedAt: new Date(dbProduct.updated_at),
   };
@@ -135,12 +172,13 @@ export const getProducts = async (
     }
 
     // Query per i dati
+    // Usa left join invece di inner join per evitare errori se i dati non esistono
     let query = supabase
       .from('products')
       .select(`
         *,
-        games!inner(slug),
-        product_types!inner(slug)
+        games(slug),
+        product_types(slug)
       `)
       .order('created_at', { ascending: false });
 
@@ -264,15 +302,15 @@ export const getProductsByGame = async (game: GameType, includeUnpublished: bool
       return [];
     }
 
-    let query = supabase
-      .from('products')
-      .select(`
-        *,
-        games!inner(slug),
-        product_types!inner(slug)
-      `)
-      .eq('game_id', gameData.id)
-      .order('created_at', { ascending: false });
+                let query = supabase
+                  .from('products')
+                  .select(`
+                    *,
+                    games(slug),
+                    product_types(slug)
+                  `)
+                  .eq('game_id', gameData.id)
+                  .order('created_at', { ascending: false });
 
     if (!includeUnpublished) {
       query = query.eq('published', true);
@@ -354,8 +392,8 @@ export const getProductsByType = async (type: ProductType, includeUnpublished: b
       .from('products')
       .select(`
         *,
-        games!inner(slug),
-        product_types!inner(slug)
+        games(slug),
+        product_types(slug)
       `)
       .eq('type_id', typeId)
       .order('created_at', { ascending: false });
@@ -427,15 +465,105 @@ export const getProductById = async (id: string, includeUnpublished: boolean = f
   }
 
   try {
+    // Prova prima con join (più efficiente)
     const { data, error } = await supabase
       .from('products')
       .select(`
         *,
-        games!inner(slug),
-        product_types!inner(slug)
+        games(slug),
+        product_types(slug)
       `)
       .eq('id', id)
-      .single();
+      .maybeSingle(); // Usa maybeSingle per gestire meglio i casi in cui il record non esiste
+
+    // Se c'è un errore 406 o problemi con il join, usa fallback senza join
+    if (error && (error.code === 'PGRST116' || error.message?.includes('406') || error.message?.includes('Not Acceptable') || error.code === '42883')) {
+      console.warn('Join query failed, using fallback query without joins:', error.message);
+      
+      // Fallback: carica prodotto senza join
+      const { data: fallbackData, error: fallbackError } = await supabase
+        .from('products')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
+      
+      if (fallbackError || !fallbackData) {
+        console.error('Error fetching product (fallback):', fallbackError);
+        return null;
+      }
+      
+      // Se non è published e non è richiesto, ritorna null
+      if (!fallbackData.published && !includeUnpublished) {
+        return null;
+      }
+      
+      // Carica game, type, immagini e featured separatamente
+      let gameSlug = 'other';
+      try {
+        const { data: gameData } = await supabase
+          .from('games')
+          .select('slug')
+          .eq('id', fallbackData.game_id)
+          .maybeSingle();
+        if (gameData) gameSlug = gameData.slug;
+      } catch (e) {
+        console.warn('Error fetching game:', e);
+      }
+      
+      let typeSlug = 'raw';
+      try {
+        const { data: typeData } = await supabase
+          .from('product_types')
+          .select('slug')
+          .eq('id', fallbackData.type_id)
+          .maybeSingle();
+        if (typeData) typeSlug = typeData.slug;
+      } catch (e) {
+        console.warn('Error fetching product type:', e);
+      }
+      
+      let images: string[] = [];
+      try {
+        const { data: imagesData } = await supabase
+          .from('product_images')
+          .select('url, sort_order')
+          .eq('product_id', id)
+          .order('sort_order', { ascending: true });
+        if (imagesData) images = imagesData.map(img => img.url);
+      } catch (e) {
+        console.warn('Error fetching images:', e);
+      }
+      
+      let featured = false;
+      try {
+        const { data: featuredData } = await supabase
+          .from('featured_products')
+          .select('product_id')
+          .eq('product_id', id)
+          .maybeSingle();
+        if (featuredData) featured = true;
+      } catch (e) {
+        console.warn('Error checking featured status:', e);
+      }
+      
+      return {
+        id: fallbackData.id,
+        name: fallbackData.name,
+        game: mapGameSlugToGameType(gameSlug),
+        type: mapTypeSlugToProductType(typeSlug),
+        set: fallbackData.set_name || '',
+        cardCode: fallbackData.code || '',
+        language: (fallbackData.language || 'ENG') as Language,
+        condition: (fallbackData.condition || 'near-mint') as Condition,
+        price: fallbackData.price_cents / 100,
+        images: images,
+        status: mapStatusToProductStatus(fallbackData.status),
+        description: fallbackData.description || undefined,
+        featured: featured,
+        createdAt: new Date(fallbackData.created_at),
+        updatedAt: new Date(fallbackData.updated_at),
+      };
+    }
 
     if (error) {
       console.error('Error fetching product by id:', error);
@@ -449,33 +577,51 @@ export const getProductById = async (id: string, includeUnpublished: boolean = f
       return null;
     }
 
-    // Carica immagini e featured
-    const { data: images } = await supabase
-      .from('product_images')
-      .select('url, sort_order')
-      .eq('product_id', id)
-      .order('sort_order', { ascending: true });
+    // Carica immagini e featured con gestione errori
+    let images: string[] = [];
+    try {
+      const { data: imagesData, error: imagesError } = await supabase
+        .from('product_images')
+        .select('url, sort_order')
+        .eq('product_id', id)
+        .order('sort_order', { ascending: true });
+      
+      if (!imagesError && imagesData) {
+        images = imagesData.map(img => img.url);
+      }
+    } catch (e) {
+      console.warn('Error fetching images:', e);
+    }
 
-    const { data: featured } = await supabase
-      .from('featured_products')
-      .select('product_id')
-      .eq('product_id', id)
-      .single();
+    let featured = false;
+    try {
+      const { data: featuredData, error: featuredError } = await supabase
+        .from('featured_products')
+        .select('product_id')
+        .eq('product_id', id)
+        .maybeSingle();
+      
+      if (!featuredError && featuredData) {
+        featured = true;
+      }
+    } catch (e) {
+      console.warn('Error checking featured status:', e);
+    }
 
     return {
       id: data.id,
       name: data.name,
-      game: mapGameSlugToGameType(data.games?.slug || 'other'),
-      type: mapTypeSlugToProductType(data.product_types?.slug || 'raw'),
+      game: mapGameSlugToGameType((data.games as any)?.slug || 'other'),
+      type: mapTypeSlugToProductType((data.product_types as any)?.slug || 'raw'),
       set: data.set_name || '',
       cardCode: data.code || '',
       language: (data.language || 'ENG') as Language,
       condition: (data.condition || 'near-mint') as Condition,
       price: data.price_cents / 100,
-      images: images?.map(img => img.url) || [],
+      images: images,
       status: mapStatusToProductStatus(data.status),
       description: data.description || undefined,
-      featured: !!featured,
+      featured: featured,
       createdAt: new Date(data.created_at),
       updatedAt: new Date(data.updated_at),
     };
@@ -674,19 +820,26 @@ export const updateProduct = async (id: string, updates: Partial<Omit<Product, '
   }
 
   try {
-    const updateData: any = {};
+    const updateData: any = {
+      updated_at: new Date().toISOString(), // Aggiorna sempre il timestamp
+    };
 
-    if (updates.name !== undefined) updateData.name = updates.name;
-    if (updates.set !== undefined) updateData.set_name = updates.set;
-    if (updates.cardCode !== undefined) updateData.code = updates.cardCode;
-    if (updates.language !== undefined) updateData.language = updates.language;
-    if (updates.condition !== undefined) updateData.condition = updates.condition;
-    if (updates.description !== undefined) updateData.description = updates.description;
-    if (updates.price !== undefined) updateData.price_cents = Math.round(updates.price * 100);
-    if (updates.status !== undefined) updateData.status = mapProductStatusToStatus(updates.status);
+    // Costruisci updateData solo con i campi definiti (non undefined)
+    if (updates.name !== undefined && updates.name !== null) updateData.name = updates.name;
+    if (updates.set !== undefined) updateData.set_name = updates.set || null; // Permetti null per campi opzionali
+    if (updates.cardCode !== undefined) updateData.code = updates.cardCode || null;
+    if (updates.language !== undefined && updates.language !== null) updateData.language = updates.language;
+    if (updates.condition !== undefined && updates.condition !== null) updateData.condition = updates.condition;
+    if (updates.description !== undefined) updateData.description = updates.description || null;
+    if (updates.price !== undefined && updates.price !== null) {
+      updateData.price_cents = Math.round(updates.price * 100);
+    }
+    if (updates.status !== undefined && updates.status !== null) {
+      updateData.status = mapProductStatusToStatus(updates.status);
+    }
 
     // Se cambia game, aggiorna game_id
-    if (updates.game !== undefined) {
+    if (updates.game !== undefined && updates.game !== null) {
       const gameSlugMap: Record<GameType, string> = {
         pokemon: 'pokemon',
         yugioh: 'yu-gi-oh',
@@ -695,29 +848,32 @@ export const updateProduct = async (id: string, updates: Partial<Omit<Product, '
       };
       const gameSlug = gameSlugMap[updates.game];
 
-      let { data: gameData } = await supabase
+      const { data: gameData, error: gameError } = await supabase
         .from('games')
         .select('id')
         .eq('slug', gameSlug)
-        .single();
+        .maybeSingle();
 
-      // Se non esiste "other", prova a crearlo
-      if (!gameData && gameSlug === 'other') {
+      // Se non esiste "other", prova a crearlo (ma probabilmente fallirà per RLS)
+      if (!gameData && !gameError && gameSlug === 'other') {
         const { data: createdGame } = await supabase
           .from('games')
           .insert({ slug: 'other', name: 'Altri prodotti' })
           .select()
-          .single();
-        gameData = createdGame || null;
-      }
-
-      if (gameData) {
+          .maybeSingle();
+        if (createdGame) {
+          updateData.game_id = createdGame.id;
+        }
+      } else if (gameData) {
         updateData.game_id = gameData.id;
+      } else if (gameError) {
+        console.warn('Error fetching game:', gameError);
+        // Non fallire se il game non viene trovato, usa quello esistente
       }
     }
 
     // Se cambia type, aggiorna type_id
-    if (updates.type !== undefined) {
+    if (updates.type !== undefined && updates.type !== null) {
       const typeIdMap: Record<ProductType, number> = {
         raw: 1,
         graded: 2,
@@ -726,65 +882,112 @@ export const updateProduct = async (id: string, updates: Partial<Omit<Product, '
       updateData.type_id = typeIdMap[updates.type];
     }
 
-    const { error } = await supabase
+    // Verifica che ci sia almeno un campo da aggiornare (oltre a updated_at)
+    const fieldsToUpdate = Object.keys(updateData).filter(key => key !== 'updated_at');
+    if (fieldsToUpdate.length === 0) {
+      console.warn('No fields to update for product:', id);
+      // Ritorna il prodotto esistente se non ci sono modifiche
+      return await getProductById(id, true);
+    }
+
+    const { data: updatedProduct, error } = await supabase
       .from('products')
       .update(updateData)
-      .eq('id', id);
+      .eq('id', id)
+      .select()
+      .single();
 
     if (error) {
       console.error('Error updating product:', error);
-      throw new Error(error.message);
+      console.error('Update data:', updateData);
+      throw new Error(error.message || 'Errore durante l\'aggiornamento del prodotto');
     }
 
     // Aggiorna immagini se presenti
     if (updates.images !== undefined) {
-      // Elimina vecchie immagini
-      await supabase
-        .from('product_images')
-        .delete()
-        .eq('product_id', id);
-
-      // Aggiungi nuove immagini
-      if (updates.images.length > 0) {
-        const imagesToInsert = updates.images.map((url, index) => ({
-          product_id: id,
-          url,
-          alt: updates.name || '',
-          sort_order: index,
-        }));
-
-        await supabase
+      try {
+        // Elimina vecchie immagini
+        const { error: deleteError } = await supabase
           .from('product_images')
-          .insert(imagesToInsert);
+          .delete()
+          .eq('product_id', id);
+
+        if (deleteError) {
+          console.warn('Error deleting old images:', deleteError);
+        }
+
+        // Aggiungi nuove immagini
+        if (updates.images && updates.images.length > 0) {
+          const productName = updates.name || updatedProduct?.name || '';
+          const imagesToInsert = updates.images
+            .filter(url => url && url.trim() !== '') // Filtra URL vuoti
+            .map((url, index) => ({
+              product_id: id,
+              url: url.trim(),
+              alt: productName,
+              sort_order: index,
+            }));
+
+          if (imagesToInsert.length > 0) {
+            const { error: insertError } = await supabase
+              .from('product_images')
+              .insert(imagesToInsert);
+
+            if (insertError) {
+              console.warn('Error inserting images:', insertError);
+            }
+          }
+        }
+      } catch (imagesError) {
+        console.warn('Error updating images:', imagesError);
+        // Non fallire l'update se le immagini falliscono
       }
     }
 
     // Aggiorna featured
     if (updates.featured !== undefined) {
-      const { data: existing } = await supabase
-        .from('featured_products')
-        .select('product_id')
-        .eq('product_id', id)
-        .single();
+      try {
+        const { data: existing, error: featuredCheckError } = await supabase
+          .from('featured_products')
+          .select('product_id')
+          .eq('product_id', id)
+          .maybeSingle();
 
-      if (updates.featured && !existing) {
-        // Aggiungi
-        await supabase
-          .from('featured_products')
-          .insert({ product_id: id, rank: 0 });
-      } else if (!updates.featured && existing) {
-        // Rimuovi
-        await supabase
-          .from('featured_products')
-          .delete()
-          .eq('product_id', id);
+        if (featuredCheckError && featuredCheckError.code !== 'PGRST116') {
+          console.warn('Error checking featured status:', featuredCheckError);
+        } else {
+          if (updates.featured && !existing) {
+            // Aggiungi
+            const { error: insertError } = await supabase
+              .from('featured_products')
+              .insert({ product_id: id, rank: 999 });
+            if (insertError) {
+              console.warn('Error adding to featured:', insertError);
+            }
+          } else if (!updates.featured && existing) {
+            // Rimuovi
+            const { error: deleteError } = await supabase
+              .from('featured_products')
+              .delete()
+              .eq('product_id', id);
+            if (deleteError) {
+              console.warn('Error removing from featured:', deleteError);
+            }
+          }
+        }
+      } catch (featuredError) {
+        console.warn('Error updating featured status:', featuredError);
+        // Non fallire l'update se featured fallisce
       }
     }
 
+    // Ritorna il prodotto aggiornato
     return await getProductById(id, true);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in updateProduct:', error);
-    throw error;
+    // Fornisci un messaggio di errore più dettagliato
+    const errorMessage = error?.message || 'Errore durante l\'aggiornamento del prodotto';
+    throw new Error(errorMessage);
   }
 };
 

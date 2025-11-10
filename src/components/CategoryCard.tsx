@@ -50,12 +50,12 @@ const CategoryCard = ({ game, title, image, count }: CategoryCardProps) => {
         <div className="p-4 sm:p-6">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-lg sm:text-xl font-semibold mb-1.5">{title}</h3>
+              <h3 className="text-xl sm:text-2xl font-semibold mb-1.5 sm:mb-2">{title}</h3>
               {count !== undefined && (
-                <p className="text-xs sm:text-sm text-muted-foreground">{count} {count === 1 ? 'carta disponibile' : 'carte disponibili'}</p>
+                <p className="text-sm sm:text-base text-muted-foreground">{count} {count === 1 ? 'carta disponibile' : 'carte disponibili'}</p>
               )}
             </div>
-            <ArrowRight className="h-5 w-5 text-muted-foreground transition-smooth group-hover:translate-x-1 group-hover:text-primary flex-shrink-0 ml-2" />
+            <ArrowRight className="h-6 w-6 sm:h-5 sm:w-5 text-muted-foreground transition-smooth group-hover:translate-x-1 group-hover:text-primary flex-shrink-0 ml-2" />
           </div>
         </div>
       </Card>

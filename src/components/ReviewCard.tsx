@@ -45,21 +45,21 @@ const ReviewCard = ({ review, compact = false }: ReviewCardProps) => {
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
             {renderStars(review.rating)}
-            <h3 className="text-base sm:text-lg font-semibold mt-2 line-clamp-1">
+            <h3 className="text-lg sm:text-lg font-semibold mt-2 line-clamp-1">
               {review.title}
             </h3>
           </div>
-          <Badge variant="secondary" className="text-xs whitespace-nowrap flex-shrink-0">
+          <Badge variant="secondary" className="text-xs sm:text-sm whitespace-nowrap flex-shrink-0">
             {review.platform}
           </Badge>
         </div>
 
-        <p className={`text-sm sm:text-base text-muted-foreground leading-relaxed ${compact ? 'line-clamp-2' : ''}`}>
+        <p className={`text-base sm:text-base text-muted-foreground leading-relaxed ${compact ? 'line-clamp-2' : ''}`}>
           {review.text}
         </p>
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-border">
-          <div className="text-xs sm:text-sm text-muted-foreground space-y-1">
+          <div className="text-sm sm:text-sm text-muted-foreground space-y-1">
             <div className="font-medium text-foreground">{review.author}</div>
             <div>{formatDate(review.date)}</div>
           </div>

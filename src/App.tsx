@@ -20,7 +20,16 @@ import CookiePolicy from "./pages/CookiePolicy";
 import NotaLegale from "./pages/NotaLegale";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30000, // Considera i dati freschi per 30 secondi
+      refetchOnWindowFocus: false, // Non refetch quando si torna alla finestra
+      refetchOnMount: true, // Refetch quando si monta il componente
+      retry: 1, // Riprova solo 1 volta in caso di errore
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>

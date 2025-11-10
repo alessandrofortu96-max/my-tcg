@@ -66,13 +66,13 @@ const Category = () => {
       <Header />
       
       <main className="flex-1">
-        <HeroSection imageName={heroImageName} minHeight="min-h-[400px]">
-          <div className="container mx-auto px-4 py-12 sm:py-16 md:py-20 lg:py-24">
+        <HeroSection imageName={heroImageName} minHeight="min-h-[400px] sm:min-h-[500px]">
+          <div className="container mx-auto px-4 py-10 sm:py-16 md:py-20 lg:py-24">
             <div className="max-w-3xl mx-auto text-center space-y-4 sm:space-y-6">
-              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight leading-tight text-gray-900 drop-shadow-sm">
+              <h1 className="text-4xl sm:text-5xl md:text-5xl lg:text-6xl font-bold tracking-tight leading-tight text-gray-900 drop-shadow-sm">
                 {gameNames[gameType]}
               </h1>
-              <p className="text-base sm:text-lg md:text-xl text-gray-700 leading-relaxed px-4 font-medium drop-shadow-sm">
+              <p className="text-lg sm:text-xl md:text-xl text-gray-700 leading-relaxed px-2 sm:px-4 font-medium drop-shadow-sm">
                 Esplora le carte disponibili dalla mia collezione
               </p>
             </div>
@@ -80,20 +80,20 @@ const Category = () => {
         </HeroSection>
 
         {/* Types Grid */}
-        <section className="py-12 sm:py-16 md:py-24 bg-accent/30">
+        <section className="py-8 sm:py-12 md:py-16 lg:py-24 bg-accent/30">
           <div className="container mx-auto px-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 md:gap-8">
               {types.map(type => (
                 <Link key={type} to={`/prodotti?game=${gameType}&type=${type}`}>
-                  <Card className="group relative overflow-hidden border-border bg-card transition-smooth hover:shadow-medium cursor-pointer p-8">
-                    <div className="space-y-4">
+                  <Card className="group relative overflow-hidden border-border bg-card transition-smooth hover:shadow-medium cursor-pointer p-6 sm:p-8">
+                    <div className="space-y-3 sm:space-y-4">
                       <div className="flex items-center justify-between">
-                        <h3 className="text-lg sm:text-xl font-semibold">
+                        <h3 className="text-xl sm:text-2xl font-semibold">
                           {typeNames[type]}
                         </h3>
-                        <ArrowRight className="h-5 w-5 text-muted-foreground transition-smooth group-hover:translate-x-1 group-hover:text-primary flex-shrink-0 ml-2" />
+                        <ArrowRight className="h-6 w-6 sm:h-5 sm:w-5 text-muted-foreground transition-smooth group-hover:translate-x-1 group-hover:text-primary flex-shrink-0 ml-2" />
                       </div>
-                      <p className="text-xs sm:text-sm text-muted-foreground">
+                      <p className="text-sm sm:text-base text-muted-foreground">
                         {type === 'raw' && 'Carte non gradate in ottime condizioni'}
                         {type === 'graded' && 'Carte certificate PSA, CGC, BGS'}
                         {type === 'sealed' && 'Booster box, Elite Trainer Box e prodotti sigillati'}
@@ -107,15 +107,15 @@ const Category = () => {
         </section>
 
         {/* Featured Products */}
-        <section className="py-12 sm:py-16 md:py-24 bg-background">
+        <section className="py-8 sm:py-12 md:py-16 lg:py-24 bg-background">
           <div className="container mx-auto px-4">
             <div className="max-w-6xl mx-auto">
-              <div className="flex items-center justify-between mb-8 sm:mb-12">
+              <div className="flex items-center justify-between mb-6 sm:mb-8 md:mb-12">
                 <div className="space-y-2 sm:space-y-3">
-                  <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight">
+                  <h2 className="text-3xl sm:text-3xl md:text-4xl font-bold tracking-tight">
                     In evidenza oggi
                   </h2>
-                  <p className="text-sm sm:text-base text-muted-foreground">
+                  <p className="text-base sm:text-base text-muted-foreground">
                     Selezione di carte particolarmente interessanti dalla mia collezione
                   </p>
                 </div>
@@ -128,7 +128,7 @@ const Category = () => {
               </div>
 
               {featuredProducts.length > 0 ? (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
                               {featuredProducts.map((product, index) => (
                                 <ProductCard 
                                   key={product.id} 
@@ -139,7 +139,7 @@ const Category = () => {
                             </div>
               ) : (
                 <div className="text-center py-12">
-                  <p className="text-sm sm:text-base text-muted-foreground">
+                  <p className="text-base sm:text-base text-muted-foreground">
                     Nessun prodotto in evidenza per {gameNames[gameType]} al momento.
                   </p>
                 </div>
@@ -159,15 +159,15 @@ const Category = () => {
 
         {/* Reviews Section */}
         {featuredReviews.length > 0 && (
-          <section className="py-12 sm:py-16 md:py-24 bg-accent/30">
+          <section className="py-8 sm:py-12 md:py-16 lg:py-24 bg-background">
             <div className="container mx-auto px-4">
               <div className="max-w-6xl mx-auto">
-                <div className="flex items-center justify-between mb-8 sm:mb-12">
+                <div className="flex items-center justify-between mb-6 sm:mb-8 md:mb-12">
                   <div className="space-y-2 sm:space-y-3">
-                    <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight">
+                    <h2 className="text-3xl sm:text-3xl md:text-4xl font-bold tracking-tight">
                       Dicono di me
                     </h2>
-                    <p className="text-sm sm:text-base text-muted-foreground">
+                    <p className="text-base sm:text-base text-muted-foreground">
                       Feedback reali da Vinted, CardTrader e Wallapop
                     </p>
                   </div>
@@ -179,31 +179,39 @@ const Category = () => {
                   </Button>
                 </div>
 
-                <Carousel
-                  opts={{
-                    align: 'start',
-                    loop: true,
-                  }}
-                  className="w-full"
-                >
-                  <CarouselContent className="-ml-2 md:-ml-4">
-                    {featuredReviews.map((review) => (
-                      <CarouselItem key={review.id} className="pl-2 md:pl-4 md:basis-1/2 lg:basis-1/3">
-                        <ReviewCard review={review} compact />
-                      </CarouselItem>
-                    ))}
-                  </CarouselContent>
-                  <CarouselPrevious className="hidden md:flex" />
-                  <CarouselNext className="hidden md:flex" />
-                </Carousel>
-
-                <div className="text-center mt-8 sm:mt-12 md:hidden">
-                  <Link 
-                    to="/recensioni" 
-                    className="text-sm sm:text-base text-primary hover:underline transition-smooth font-medium"
+                {/* Carousel solo su mobile */}
+                <div className="md:hidden">
+                  <Carousel
+                    opts={{
+                      align: 'start',
+                      loop: true,
+                    }}
+                    className="w-full"
                   >
-                    Leggi tutte le recensioni →
-                  </Link>
+                    <CarouselContent className="-ml-2">
+                      {featuredReviews.map((review) => (
+                        <CarouselItem key={review.id} className="pl-2 basis-full">
+                          <ReviewCard review={review} compact />
+                        </CarouselItem>
+                      ))}
+                    </CarouselContent>
+                  </Carousel>
+
+                  <div className="text-center mt-8">
+                    <Link 
+                      to="/recensioni" 
+                      className="text-base text-primary hover:underline transition-smooth font-medium"
+                    >
+                      Leggi tutte le recensioni →
+                    </Link>
+                  </div>
+                </div>
+
+                {/* Griglia su desktop */}
+                <div className="hidden md:grid md:grid-cols-3 gap-6">
+                  {featuredReviews.map((review) => (
+                    <ReviewCard key={review.id} review={review} compact />
+                  ))}
                 </div>
               </div>
             </div>

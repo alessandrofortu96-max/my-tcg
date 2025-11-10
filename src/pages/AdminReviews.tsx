@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useState, useRef } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -41,7 +41,6 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 const AdminReviews = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const location = useLocation();
   const queryClient = useQueryClient();
   const [editingReview, setEditingReview] = useState<Review | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -49,22 +48,17 @@ const AdminReviews = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // React Query per caricare le recensioni
-  const { data: reviews = getAllReviewsSync(), isLoading, refetch } = useQuery({
+  const { data: reviews = getAllReviewsSync(), isLoading } = useQuery({
     queryKey: ['admin-reviews'],
     queryFn: async () => {
       // Carica le recensioni (usa il cache in memoria se disponibile)
       return await getAllReviews();
     },
-    staleTime: 0, // Sempre considera i dati stale per refetch immediato
+    staleTime: 30000, // Considera i dati freschi per 30 secondi
+    refetchOnWindowFocus: false, // Non refetch quando si torna alla finestra
+    refetchOnMount: true, // Refetch quando si monta il componente
     initialData: getAllReviewsSync(), // Dati iniziali sincroni
   });
-
-  // Refetch quando si torna alla pagina recensioni
-  useEffect(() => {
-    if (location.pathname === '/dashboard/recensioni') {
-      refetch();
-    }
-  }, [location.pathname, refetch]);
 
   const [formData, setFormData] = useState({
     platform: 'Vinted' as ReviewPlatform,
@@ -111,9 +105,9 @@ const AdminReviews = () => {
         return true;
       }
     },
-    onSuccess: (_, variables) => {
+    onSuccess: async (_, variables) => {
       // Invalida la query per refetch automatico
-      queryClient.invalidateQueries({ queryKey: ['admin-reviews'] });
+      await queryClient.invalidateQueries({ queryKey: ['admin-reviews'] });
       toast({
         title: variables.id ? 'Recensione aggiornata' : 'Recensione aggiunta',
         description: variables.id 
@@ -165,8 +159,8 @@ const AdminReviews = () => {
   // Mutation per delete review
   const deleteReviewMutation = useMutation({
     mutationFn: deleteReview,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-reviews'] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['admin-reviews'] });
       toast({
         title: 'Recensione eliminata',
         description: 'La recensione è stata rimossa con successo',
@@ -184,8 +178,8 @@ const AdminReviews = () => {
   // Mutation per toggle published
   const togglePublishedMutation = useMutation({
     mutationFn: toggleReviewPublished,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-reviews'] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['admin-reviews'] });
       toast({
         title: 'Stato aggiornato',
         description: 'Lo stato di pubblicazione è stato modificato',
@@ -239,8 +233,8 @@ const AdminReviews = () => {
       
       return imported;
     },
-    onSuccess: (imported) => {
-      queryClient.invalidateQueries({ queryKey: ['admin-reviews'] });
+    onSuccess: async (imported) => {
+      await queryClient.invalidateQueries({ queryKey: ['admin-reviews'] });
       toast({
         title: 'Import completato',
         description: `${imported} recensioni importate con successo`,
@@ -298,27 +292,27 @@ const AdminReviews = () => {
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-background">
-        <header className="border-b border-border bg-background/95 backdrop-blur">
-          <div className="container mx-auto px-4">
-            <div className="flex h-16 items-center justify-between">
-              <div className="flex items-center gap-4">
-                <Button variant="ghost" size="sm" asChild>
-                  <Link to="/dashboard">
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Dashboard
-                  </Link>
-                </Button>
-                <h1 className="text-xl font-bold">Gestione Recensioni</h1>
-              </div>
+      <header className="border-b border-border bg-background/95 backdrop-blur sticky top-0 z-40">
+        <div className="container mx-auto px-3 sm:px-4">
+          <div className="flex h-14 sm:h-16 items-center justify-between gap-2">
+            <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
+              <Button variant="ghost" size="sm" asChild className="h-9 sm:h-10 px-2 sm:px-3">
+                <Link to="/dashboard">
+                  <ArrowLeft className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Dashboard</span>
+                </Link>
+              </Button>
+              <h1 className="text-lg sm:text-xl font-bold truncate">Gestione Recensioni</h1>
+            </div>
 
-              <div className="flex items-center gap-2">
-                <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button variant="outline" className="transition-smooth">
-                      <Upload className="mr-2 h-4 w-4" />
-                      Import CSV
-                    </Button>
-                  </DialogTrigger>
+            <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+            <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="transition-smooth h-9 sm:h-10 px-2 sm:px-3 text-xs sm:text-sm">
+                  <Upload className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Import CSV</span>
+                </Button>
+              </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
                       <DialogTitle>Import recensioni da CSV</DialogTitle>
@@ -354,16 +348,17 @@ const AdminReviews = () => {
                   </DialogContent>
                 </Dialog>
 
-                <Dialog open={isDialogOpen} onOpenChange={(open) => {
-                  setIsDialogOpen(open);
-                  if (!open) resetForm();
-                }}>
-                  <DialogTrigger asChild>
-                    <Button className="transition-smooth">
-                      <Plus className="mr-2 h-4 w-4" />
-                      Nuova recensione
-                    </Button>
-                  </DialogTrigger>
+            <Dialog open={isDialogOpen} onOpenChange={(open) => {
+              setIsDialogOpen(open);
+              if (!open) resetForm();
+            }}>
+              <DialogTrigger asChild>
+                <Button className="transition-smooth h-9 sm:h-10 px-2 sm:px-3 text-xs sm:text-sm">
+                  <Plus className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Nuova recensione</span>
+                  <span className="sm:hidden">Nuova</span>
+                </Button>
+              </DialogTrigger>
                   <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                       <DialogTitle>
@@ -417,18 +412,19 @@ const AdminReviews = () => {
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="title">Titolo recensione *</Label>
+                        <Label htmlFor="title" className="text-sm">Titolo recensione *</Label>
                         <Input
                           id="title"
                           value={formData.title}
                           onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                           placeholder="Es. Perfetto!"
                           required
+                          className="h-10 sm:h-11 text-sm"
                         />
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="text">Testo recensione *</Label>
+                        <Label htmlFor="text" className="text-sm">Testo recensione *</Label>
                         <Textarea
                           id="text"
                           value={formData.text}
@@ -436,35 +432,38 @@ const AdminReviews = () => {
                           placeholder="Testo completo della recensione..."
                           rows={4}
                           required
+                          className="text-sm"
                         />
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor="author">Username autore *</Label>
+                          <Label htmlFor="author" className="text-sm">Username autore *</Label>
                           <Input
                             id="author"
                             value={formData.author}
                             onChange={(e) => setFormData({ ...formData, author: e.target.value })}
                             placeholder="@username"
                             required
+                            className="h-10 sm:h-11 text-sm"
                           />
                         </div>
 
                         <div className="space-y-2">
-                          <Label htmlFor="date">Data *</Label>
+                          <Label htmlFor="date" className="text-sm">Data *</Label>
                           <Input
                             id="date"
                             type="date"
                             value={formData.date}
                             onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                             required
+                            className="h-10 sm:h-11 text-sm"
                           />
                         </div>
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="screenshotUrl">URL Screenshot (opzionale)</Label>
+                        <Label htmlFor="screenshotUrl" className="text-sm">URL Screenshot (opzionale)</Label>
                         <Input
                           id="screenshotUrl"
                           value={formData.screenshotUrl}
@@ -472,6 +471,7 @@ const AdminReviews = () => {
                             setFormData({ ...formData, screenshotUrl: e.target.value })
                           }
                           placeholder="/path/to/screenshot.jpg"
+                          className="h-10 sm:h-11 text-sm"
                         />
                       </div>
 
@@ -485,7 +485,7 @@ const AdminReviews = () => {
                           }
                           className="h-4 w-4 rounded border-input"
                         />
-                        <Label htmlFor="published" className="cursor-pointer">
+                        <Label htmlFor="published" className="cursor-pointer text-sm">
                           Pubblica subito
                         </Label>
                       </div>
@@ -509,43 +509,43 @@ const AdminReviews = () => {
                   </DialogContent>
                 </Dialog>
 
-                <Button variant="outline" size="sm" onClick={handleLogout} className="transition-smooth">
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Logout
+                <Button variant="outline" size="sm" onClick={handleLogout} className="transition-smooth h-9 sm:h-10 px-2 sm:px-3">
+                  <LogOut className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Logout</span>
                 </Button>
               </div>
             </div>
           </div>
         </header>
 
-        <main className="container mx-auto px-4 py-8">
+        <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 md:py-8">
           {/* Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <Card className="p-6">
-              <div className="space-y-2">
-                <h3 className="text-sm font-medium text-muted-foreground">Totale recensioni</h3>
-                <p className="text-3xl font-bold text-primary">{reviews.length}</p>
-              </div>
-            </Card>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 md:gap-6 mb-4 sm:mb-6 md:mb-8">
+          <Card className="p-4 sm:p-6">
+            <div className="space-y-1 sm:space-y-2">
+              <h3 className="text-xs sm:text-sm font-medium text-muted-foreground">Totale recensioni</h3>
+              <p className="text-2xl sm:text-3xl font-bold text-primary">{reviews.length}</p>
+            </div>
+          </Card>
 
-            <Card className="p-6">
-              <div className="space-y-2">
-                <h3 className="text-sm font-medium text-muted-foreground">Pubblicate</h3>
-                <p className="text-3xl font-bold text-primary">
-                  {reviews.filter((r) => r.published).length}
-                </p>
-              </div>
-            </Card>
+          <Card className="p-4 sm:p-6">
+            <div className="space-y-1 sm:space-y-2">
+              <h3 className="text-xs sm:text-sm font-medium text-muted-foreground">Pubblicate</h3>
+              <p className="text-2xl sm:text-3xl font-bold text-primary">
+                {reviews.filter((r) => r.published).length}
+              </p>
+            </div>
+          </Card>
 
-            <Card className="p-6">
-              <div className="space-y-2">
-                <h3 className="text-sm font-medium text-muted-foreground">In bozza</h3>
-                <p className="text-3xl font-bold text-primary">
-                  {reviews.filter((r) => !r.published).length}
-                </p>
-              </div>
-            </Card>
-          </div>
+          <Card className="p-4 sm:p-6">
+            <div className="space-y-1 sm:space-y-2">
+              <h3 className="text-xs sm:text-sm font-medium text-muted-foreground">In bozza</h3>
+              <p className="text-2xl sm:text-3xl font-bold text-primary">
+                {reviews.filter((r) => !r.published).length}
+              </p>
+            </div>
+          </Card>
+        </div>
 
           {/* Reviews List */}
           <div className="space-y-4">

@@ -81,16 +81,21 @@ const Admin = () => {
   const toggleFeaturedMutation = useMutation({
     mutationFn: toggleProductFeatured,
     onSuccess: () => {
-      // Invalida solo la query (React Query refetch automaticamente se necessario)
-      // NON chiamare refetchQueries esplicitamente per evitare race condition
-      // Non usare await per non bloccare l'UI
-      queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+      // Mostra il toast prima
       toast({
         title: "Aggiornato",
         description: "Stato 'In evidenza' modificato con successo",
       });
+      
+      // Invalida la query in modo asincrono (non bloccare)
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['admin-products'] }).catch(err => {
+          console.warn('[toggleFeaturedMutation] Error invalidating queries:', err);
+        });
+      }, 0);
     },
     onError: (error: any) => {
+      console.error('[toggleFeaturedMutation] Error:', error);
       toast({
         title: "Errore",
         description: error.message || "Impossibile aggiornare il prodotto",
@@ -103,14 +108,21 @@ const Admin = () => {
   const toggleStatusMutation = useMutation({
     mutationFn: toggleProductStatus,
     onSuccess: (newStatus) => {
-      // Non usare await per non bloccare l'UI
-      queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+      // Mostra il toast prima
       toast({
         title: "Aggiornato",
         description: `Prodotto marcato come ${newStatus === 'sold' ? 'venduto' : 'disponibile'}`,
       });
+      
+      // Invalida la query in modo asincrono (non bloccare)
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['admin-products'] }).catch(err => {
+          console.warn('[toggleStatusMutation] Error invalidating queries:', err);
+        });
+      }, 0);
     },
     onError: (error: any) => {
+      console.error('[toggleStatusMutation] Error:', error);
       toast({
         title: "Errore",
         description: error.message || "Impossibile aggiornare lo stato",
@@ -123,14 +135,21 @@ const Admin = () => {
   const deleteMutation = useMutation({
     mutationFn: deleteProduct,
     onSuccess: () => {
-      // Non usare await per non bloccare l'UI
-      queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+      // Mostra il toast prima
       toast({
         title: "Eliminato",
         description: "Prodotto eliminato con successo",
       });
+      
+      // Invalida la query in modo asincrono (non bloccare)
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['admin-products'] }).catch(err => {
+          console.warn('[deleteMutation] Error invalidating queries:', err);
+        });
+      }, 0);
     },
     onError: (error: any) => {
+      console.error('[deleteMutation] Error:', error);
       toast({
         title: "Errore",
         description: error.message || "Impossibile eliminare il prodotto",

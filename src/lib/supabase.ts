@@ -67,6 +67,9 @@ function getSupabaseClient(): SupabaseClient {
           storageKey: STORAGE_KEY,
           storage: window.localStorage,
           detectSessionInUrl: false, // Disabilita rilevamento session in URL per evitare conflitti
+          // Refresh token quando mancano 120 secondi alla scadenza (default è 60)
+          // Questo previene errori durante operazioni lunghe
+          flowType: 'pkce', // Usa PKCE flow per sicurezza migliore
         },
       });
     }

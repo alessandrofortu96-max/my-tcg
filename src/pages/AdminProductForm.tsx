@@ -113,32 +113,42 @@ const AdminProductForm = () => {
   // Mutation per create/update
   const saveMutation = useMutation({
     mutationFn: async (data: { id?: string; formData: Omit<Product, 'id' | 'createdAt' | 'updatedAt'> }) => {
-      // Crea un timeout per evitare che la chiamata si blocchi indefinitamente
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => {
-          reject(new Error('Timeout: la richiesta ha impiegato troppo tempo. Riprova.'));
-        }, 30000); // 30 secondi di timeout
-      });
-
-      const productPromise = data.id 
-        ? updateProduct(data.id, data.formData)
-        : createProduct(data.formData);
-
-      // Race tra la promise del prodotto e il timeout
-      return await Promise.race([productPromise, timeoutPromise]) as Product;
-    },
-    onSuccess: async (_, variables) => {
+      console.log(`[saveMutation] Starting ${data.id ? 'update' : 'create'} product...`);
+      
       try {
-        // Invalida la query dei prodotti per refetch automatico
-        await Promise.race([
-          queryClient.invalidateQueries({ queryKey: ['admin-products'] }),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
-        ]);
-      } catch (error) {
-        console.warn('Error invalidating queries:', error);
-        // Non bloccare la navigazione se l'invalidazione fallisce
+        const result = data.id 
+          ? await updateProduct(data.id, data.formData)
+          : await createProduct(data.formData);
+
+        if (!result) {
+          throw new Error('Operazione completata ma nessun prodotto restituito');
+        }
+
+        console.log(`[saveMutation] ${data.id ? 'Update' : 'Create'} successful:`, result.id);
+        return result;
+      } catch (error: any) {
+        console.error(`[saveMutation] Error ${data.id ? 'updating' : 'creating'} product:`, error);
+        // Se l'errore è di autenticazione, fornisci un messaggio più chiaro
+        if (
+          error?.message?.includes('Sessione scaduta') ||
+          error?.message?.includes('autenticazione') ||
+          error?.message?.includes('login')
+        ) {
+          throw new Error('La sessione è scaduta. Effettua il login di nuovo e riprova.');
+        }
+        throw error;
+      }
+    },
+    onSuccess: (_, variables) => {
+      console.log(`[saveMutation] onSuccess for ${variables.id ? 'update' : 'create'}`);
+      
+      // Verifica che il componente sia ancora montato prima di navigare
+      if (!isMountedRef.current) {
+        console.log('[saveMutation] Component unmounted, skipping navigation');
+        return;
       }
 
+      // Mostra il toast prima
       toast({
         title: variables.id ? "Prodotto aggiornato" : "Prodotto creato",
         description: variables.id 
@@ -146,13 +156,25 @@ const AdminProductForm = () => {
           : "Il nuovo prodotto è stato aggiunto",
       });
 
-      // Naviga dopo un breve delay per permettere al toast di essere visibile
+      // Invalida la query in modo asincrono (non bloccare)
       setTimeout(() => {
-        navigate('/dashboard', { replace: true });
-      }, 500);
+        queryClient.invalidateQueries({ queryKey: ['admin-products'] }).catch(err => {
+          console.warn('[saveMutation] Error invalidating queries:', err);
+        });
+      }, 0);
+
+      // Naviga immediatamente (non aspettare invalidazione)
+      navigate('/dashboard', { replace: true });
     },
     onError: (error: any) => {
-      console.error('Error saving product:', error);
+      console.error('[saveMutation] onError:', error);
+      
+      // Verifica che il componente sia ancora montato prima di mostrare l'errore
+      if (!isMountedRef.current) {
+        console.log('[saveMutation] Component unmounted, skipping error toast');
+        return;
+      }
+
       toast({
         title: "Errore",
         description: error.message || "Impossibile salvare il prodotto. Riprova più tardi.",

@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from './supabase';
+import { auth } from './auth';
 
 const PRODUCT_IMAGES_BUCKET = 'product-images';
 
@@ -40,10 +41,11 @@ export const uploadProductImage = async (
   }
 
   try {
-    // Verifica che l'utente sia autenticato
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      throw new Error('Devi essere autenticato per caricare immagini');
+    // Verifica e aggiorna la sessione se necessario
+    const { session, error: sessionError } = await auth.ensureValidSession();
+    if (sessionError || !session) {
+      console.error('Session error:', sessionError);
+      throw new Error('Sessione scaduta. Effettua il login di nuovo.');
     }
 
     // Genera un nome file univoco

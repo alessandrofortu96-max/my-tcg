@@ -30,10 +30,15 @@ const queryClient = new QueryClient({
       retry: 1, // Riprova solo 1 volta in caso di errore
       gcTime: 300000, // Mantieni in cache per 5 minuti (precedentemente cacheTime)
       networkMode: 'online', // Esegui query solo se online
+      // Non refetch automaticamente durante le mutation
+      refetchInterval: false,
+      refetchIntervalInBackground: false,
     },
     mutations: {
-      retry: 0, // Non riprovare le mutation in caso di errore
+      retry: 0, // Non riprovare le mutation in caso di errore (gestito manualmente)
       networkMode: 'online', // Esegui mutation solo se online
+      // Non refetch automaticamente dopo le mutation (gestito manualmente)
+      onSuccess: undefined,
     },
   },
 });

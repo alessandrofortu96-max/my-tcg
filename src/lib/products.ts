@@ -1,5 +1,6 @@
 import { Product, GameType, ProductType, ProductStatus, Condition, Language } from './types';
 import { supabase, isSupabaseConfigured } from './supabase';
+import { auth } from './auth';
 
 // Helper per mappare game slug a GameType
 const mapGameSlugToGameType = (slug: string): GameType => {
@@ -686,13 +687,63 @@ export const getFeaturedProducts = async (): Promise<Product[]> => {
   }
 };
 
+// Helper per eseguire operazioni Supabase con retry su errori di autenticazione
+const executeWithAuthRetry = async <T>(
+  operation: () => Promise<T>,
+  operationName: string
+): Promise<T> => {
+  try {
+    // Verifica e aggiorna la sessione prima dell'operazione
+    const { session, error: sessionError } = await auth.ensureValidSession();
+    if (sessionError || !session) {
+      console.error(`${operationName}: Session error:`, sessionError);
+      throw new Error('Sessione scaduta. Effettua il login di nuovo.');
+    }
+
+    // Esegui l'operazione
+    return await operation();
+  } catch (error: any) {
+    // Se l'errore è di autenticazione (JWT, token), prova a fare refresh e riprova
+    if (
+      error?.message?.includes('JWT') ||
+      error?.message?.includes('token') ||
+      error?.message?.includes('expired') ||
+      error?.message?.includes('unauthorized') ||
+      error?.message?.includes('authentication') ||
+      error?.code === 'PGRST301' || // Supabase auth error
+      error?.status === 401
+    ) {
+      console.warn(`${operationName}: Auth error detected, attempting refresh and retry...`);
+      try {
+        // Prova a fare refresh della sessione
+        const { session: refreshedSession, error: refreshError } = await auth.ensureValidSession();
+        if (refreshError || !refreshedSession) {
+          console.error(`${operationName}: Failed to refresh session:`, refreshError);
+          throw new Error('Sessione scaduta. Effettua il login di nuovo.');
+        }
+
+        // Riprova l'operazione dopo il refresh
+        console.log(`${operationName}: Retrying after session refresh...`);
+        return await operation();
+      } catch (retryError: any) {
+        console.error(`${operationName}: Retry failed:`, retryError);
+        throw new Error('Errore di autenticazione. Effettua il login di nuovo.');
+      }
+    }
+
+    // Rilancia altri errori
+    throw error;
+  }
+};
+
 // Create product
 export const createProduct = async (product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>): Promise<Product | null> => {
   if (!isSupabaseConfigured()) {
     throw new Error('Supabase not configured');
   }
 
-  try {
+  return executeWithAuthRetry(async () => {
+    try {
     // Trova o crea game_id
     const gameSlugMap: Record<GameType, string> = {
       pokemon: 'pokemon',
@@ -811,11 +862,12 @@ export const createProduct = async (product: Omit<Product, 'id' | 'createdAt' | 
       }
     }
 
-    return await getProductById(newProduct.id, true);
-  } catch (error) {
-    console.error('Error in createProduct:', error);
-    throw error;
-  }
+      return await getProductById(newProduct.id, true);
+    } catch (error) {
+      console.error('Error in createProduct:', error);
+      throw error;
+    }
+  }, 'createProduct');
 };
 
 // Update product
@@ -824,7 +876,8 @@ export const updateProduct = async (id: string, updates: Partial<Omit<Product, '
     throw new Error('Supabase not configured');
   }
 
-  try {
+  return executeWithAuthRetry(async () => {
+    try {
     const updateData: any = {
       updated_at: new Date().toISOString(), // Aggiorna sempre il timestamp
     };
@@ -1020,14 +1073,15 @@ export const updateProduct = async (id: string, updates: Partial<Omit<Product, '
       }
     }
 
-    // Ritorna il prodotto aggiornato
-    return await getProductById(id, true);
-  } catch (error: any) {
-    console.error('Error in updateProduct:', error);
-    // Fornisci un messaggio di errore più dettagliato
-    const errorMessage = error?.message || 'Errore durante l\'aggiornamento del prodotto';
-    throw new Error(errorMessage);
-  }
+      // Ritorna il prodotto aggiornato
+      return await getProductById(id, true);
+    } catch (error: any) {
+      console.error('Error in updateProduct:', error);
+      // Fornisci un messaggio di errore più dettagliato
+      const errorMessage = error?.message || 'Errore durante l\'aggiornamento del prodotto';
+      throw new Error(errorMessage);
+    }
+  }, 'updateProduct');
 };
 
 // Delete product
@@ -1036,22 +1090,24 @@ export const deleteProduct = async (id: string): Promise<boolean> => {
     throw new Error('Supabase not configured');
   }
 
-  try {
-    const { error } = await supabase
-      .from('products')
-      .delete()
-      .eq('id', id);
+  return executeWithAuthRetry(async () => {
+    try {
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', id);
 
-    if (error) {
-      console.error('Error deleting product:', error);
-      throw new Error(error.message);
+      if (error) {
+        console.error('Error deleting product:', error);
+        throw new Error(error.message);
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error in deleteProduct:', error);
+      throw error;
     }
-
-    return true;
-  } catch (error) {
-    console.error('Error in deleteProduct:', error);
-    throw error;
-  }
+  }, 'deleteProduct');
 };
 
 // Toggle featured
@@ -1060,14 +1116,15 @@ export const toggleProductFeatured = async (id: string): Promise<boolean> => {
     throw new Error('Supabase not configured');
   }
 
-  try {
-    // Carica il prodotto corrente per verificare lo stato featured
-    const product = await getProductById(id, true);
-    if (!product) {
-      throw new Error('Product not found');
-    }
+  return executeWithAuthRetry(async () => {
+    try {
+      // Carica il prodotto corrente per verificare lo stato featured
+      const product = await getProductById(id, true);
+      if (!product) {
+        throw new Error('Product not found');
+      }
 
-    const newFeaturedStatus = !product.featured;
+      const newFeaturedStatus = !product.featured;
 
     // Aggiorna lo stato featured direttamente nella tabella featured_products
     // senza passare per updateProduct per evitare il problema "No fields to update"
@@ -1122,24 +1179,25 @@ export const toggleProductFeatured = async (id: string): Promise<boolean> => {
         }
       }
       // Se non esiste già, non fare nulla (idempotente)
+      }
+
+      // Aggiorna il timestamp del prodotto per segnalare la modifica
+      const { error: timestampError } = await supabase
+        .from('products')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', id);
+
+      if (timestampError) {
+        console.warn('Error updating timestamp:', timestampError);
+        // Non fallire se il timestamp non viene aggiornato
+      }
+
+      return newFeaturedStatus;
+    } catch (error: any) {
+      console.error('Error in toggleProductFeatured:', error);
+      throw error;
     }
-
-    // Aggiorna il timestamp del prodotto per segnalare la modifica
-    const { error: timestampError } = await supabase
-      .from('products')
-      .update({ updated_at: new Date().toISOString() })
-      .eq('id', id);
-
-    if (timestampError) {
-      console.warn('Error updating timestamp:', timestampError);
-      // Non fallire se il timestamp non viene aggiornato
-    }
-
-    return newFeaturedStatus;
-  } catch (error: any) {
-    console.error('Error in toggleProductFeatured:', error);
-    throw error;
-  }
+  }, 'toggleProductFeatured');
 };
 
 // Toggle status
@@ -1148,6 +1206,7 @@ export const toggleProductStatus = async (id: string): Promise<ProductStatus> =>
     throw new Error('Supabase not configured');
   }
 
+  // Usa updateProduct che già ha il retry con auth
   try {
     const product = await getProductById(id, true);
     if (!product) {

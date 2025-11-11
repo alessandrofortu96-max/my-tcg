@@ -168,3 +168,4 @@ const response = await fetch('/api/storage/upload', {
 - Supportano fino a 50MB di payload
 - Sono disponibili solo in produzione/preview su Vercel
 
+

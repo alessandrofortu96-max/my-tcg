@@ -110,34 +110,83 @@ const AdminProductForm = () => {
     }
   }, [id, isEditMode, navigate, toast]);
 
-  // Mutation per create/update
+  // Mutation per create/update con timeout
   const saveMutation = useMutation({
     mutationFn: async (data: { id?: string; formData: Omit<Product, 'id' | 'createdAt' | 'updatedAt'> }) => {
       console.log(`[saveMutation] Starting ${data.id ? 'update' : 'create'} product...`);
+      console.log(`[saveMutation] Form data:`, {
+        name: data.formData.name,
+        imagesCount: data.formData.images?.length || 0,
+        images: data.formData.images?.map((url, idx) => `${idx + 1}: ${url.substring(0, 50)}...`),
+        featured: data.formData.featured,
+        status: data.formData.status,
+      });
       
-      try {
-        const result = data.id 
-          ? await updateProduct(data.id, data.formData)
-          : await createProduct(data.formData);
+      // Crea una promise con timeout
+      const operationPromise = (async () => {
+        try {
+          // Verifica sessione prima di iniziare
+          console.log('[saveMutation] Step 1: Checking session...');
+          const sessionStartTime = Date.now();
+          const { session, error: sessionError } = await auth.ensureValidSession();
+          const sessionEndTime = Date.now();
+          console.log(`[saveMutation] Session check completed in ${sessionEndTime - sessionStartTime}ms`);
+          
+          if (sessionError || !session) {
+            console.error('[saveMutation] Session error before operation:', sessionError);
+            throw new Error(sessionError?.message || 'Sessione scaduta. Effettua il login di nuovo.');
+          }
+          console.log('[saveMutation] Step 2: Session validated, proceeding to create product...');
 
-        if (!result) {
-          throw new Error('Operazione completata ma nessun prodotto restituito');
-        }
+          console.log(`[saveMutation] Calling ${data.id ? 'updateProduct' : 'createProduct'}...`);
+          const result = data.id 
+            ? await updateProduct(data.id, data.formData)
+            : await createProduct(data.formData);
 
-        console.log(`[saveMutation] ${data.id ? 'Update' : 'Create'} successful:`, result.id);
-        return result;
-      } catch (error: any) {
-        console.error(`[saveMutation] Error ${data.id ? 'updating' : 'creating'} product:`, error);
-        // Se l'errore è di autenticazione, fornisci un messaggio più chiaro
-        if (
-          error?.message?.includes('Sessione scaduta') ||
-          error?.message?.includes('autenticazione') ||
-          error?.message?.includes('login')
-        ) {
-          throw new Error('La sessione è scaduta. Effettua il login di nuovo e riprova.');
+          if (!result) {
+            console.error('[saveMutation] Operation completed but no product returned');
+            throw new Error('Operazione completata ma nessun prodotto restituito');
+          }
+
+          console.log(`[saveMutation] ${data.id ? 'Update' : 'Create'} successful:`, result.id);
+          console.log(`[saveMutation] Result product:`, {
+            id: result.id,
+            name: result.name,
+            imagesCount: result.images?.length || 0,
+            featured: result.featured,
+          });
+          return result;
+        } catch (error: any) {
+          console.error(`[saveMutation] Error ${data.id ? 'updating' : 'creating'} product:`, error);
+          console.error(`[saveMutation] Error message:`, error?.message);
+          console.error(`[saveMutation] Error stack:`, error?.stack);
+          console.error(`[saveMutation] Error code:`, error?.code);
+          console.error(`[saveMutation] Error status:`, error?.status);
+          
+          // Se l'errore è di autenticazione, fornisci un messaggio più chiaro
+          if (
+            error?.message?.includes('Sessione scaduta') ||
+            error?.message?.includes('autenticazione') ||
+            error?.message?.includes('login') ||
+            error?.message?.includes('JWT') ||
+            error?.message?.includes('token') ||
+            error?.code === 'PGRST301' ||
+            error?.status === 401
+          ) {
+            throw new Error('La sessione è scaduta. Effettua il login di nuovo e riprova.');
+          }
+          throw error;
         }
-        throw error;
-      }
+      })();
+
+      // Timeout di 30 secondi
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => {
+          reject(new Error('Timeout: l\'operazione ha impiegato troppo tempo. Riprova.'));
+        }, 30000);
+      });
+
+      return Promise.race([operationPromise, timeoutPromise]);
     },
     onSuccess: (_, variables) => {
       console.log(`[saveMutation] onSuccess for ${variables.id ? 'update' : 'create'}`);
@@ -156,12 +205,16 @@ const AdminProductForm = () => {
           : "Il nuovo prodotto è stato aggiunto",
       });
 
-      // Invalida la query in modo asincrono (non bloccare)
-      setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: ['admin-products'] }).catch(err => {
-          console.warn('[saveMutation] Error invalidating queries:', err);
-        });
-      }, 0);
+      // Invalida la query in modo asincrono (non bloccare) solo se il componente è ancora montato
+      if (isMountedRef.current) {
+        setTimeout(() => {
+          if (isMountedRef.current) {
+            queryClient.invalidateQueries({ queryKey: ['admin-products'] }).catch(err => {
+              console.warn('[saveMutation] Error invalidating queries:', err);
+            });
+          }
+        }, 0);
+      }
 
       // Naviga immediatamente (non aspettare invalidazione)
       navigate('/dashboard', { replace: true });
@@ -215,7 +268,39 @@ const AdminProductForm = () => {
       });
       return;
     }
+
+    // Valida le immagini (URL validi)
+    if (formData.images && formData.images.length > 0) {
+      const invalidUrls: string[] = [];
+      formData.images.forEach((url, index) => {
+        if (!url || typeof url !== 'string' || url.trim() === '') {
+          invalidUrls.push(`Immagine ${index + 1}: URL vuoto`);
+        } else {
+          try {
+            new URL(url.trim());
+          } catch (e) {
+            invalidUrls.push(`Immagine ${index + 1}: URL non valido (${url})`);
+          }
+        }
+      });
+
+      if (invalidUrls.length > 0) {
+        toast({
+          title: 'URL immagini non validi',
+          description: invalidUrls.slice(0, 3).join(', ') + (invalidUrls.length > 3 ? '...' : ''),
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
     
+    console.log('[handleSubmit] Submitting form with data:', {
+      isEditMode,
+      id,
+      name: formData.name,
+      imagesCount: formData.images?.length || 0,
+    });
+
     if (isEditMode && id) {
       saveMutation.mutate({ id, formData });
     } else {
@@ -389,14 +474,81 @@ const AdminProductForm = () => {
     }
   };
 
-  const handleAddImageByUrl = () => {
-    const url = prompt('Inserisci URL immagine:');
-    if (url && url.trim()) {
-      setFormData({
-        ...formData,
-        images: [...formData.images, url.trim()],
-      });
+  const handleAddImageByUrl = async () => {
+    const urlInput = prompt('Inserisci URL immagine:');
+    if (!urlInput || !urlInput.trim()) {
+      return;
     }
+
+    // Pulisci l'URL: rimuovi caratteri strani, spazi, e caratteri di controllo
+    let url = urlInput.trim();
+    
+    // Rimuovi caratteri non validi alla fine (come €, simboli strani, etc.)
+    // Mantieni solo caratteri URL validi
+    url = url.replace(/[^\x20-\x7E\u00A0-\uFFFF]/g, ''); // Rimuovi caratteri di controllo
+    url = url.trim();
+    
+    // Rimuovi eventuali caratteri strani alla fine che potrebbero essere stati copiati per errore
+    url = url.replace(/[€$£¥₹\s]+$/, ''); // Rimuovi simboli di valuta e spazi alla fine
+    url = url.trim();
+
+    // Validazione formato URL
+    let urlObj: URL;
+    try {
+      urlObj = new URL(url);
+    } catch (error) {
+      toast({
+        title: 'URL non valido',
+        description: 'Inserisci un URL valido (es. https://example.com/image.jpg). Assicurati che l\'URL sia completo e non contenga caratteri strani.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Verifica che l'URL abbia protocol e hostname
+    if (!urlObj.protocol || !urlObj.hostname) {
+      toast({
+        title: 'URL non valido',
+        description: 'L\'URL deve includere il protocollo (https://) e il dominio.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Verifica che l'URL punti a un'immagine (estensione o tipo MIME)
+    const imageExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
+    const hasImageExtension = imageExtensions.some(ext => 
+      url.toLowerCase().includes(ext.toLowerCase())
+    );
+
+    if (!hasImageExtension) {
+      // Prova a verificare che sia un'immagine facendo una richiesta HEAD
+      try {
+        const response = await fetch(url, { 
+          method: 'HEAD', 
+          mode: 'no-cors',
+          cache: 'no-cache'
+        });
+        // Con no-cors non possiamo leggere i headers, quindi accettiamo l'URL
+        // Se l'URL non è accessibile, l'utente vedrà un errore quando prova a caricare l'immagine
+      } catch (error) {
+        console.warn('Could not verify image URL:', error);
+        // Continuiamo comunque - l'utente vedrà l'errore nella preview
+      }
+    }
+
+    console.log('[handleAddImageByUrl] Adding image URL:', url.substring(0, 80) + '...');
+
+    // Aggiungi l'URL all'array (usa l'URL pulito)
+    setFormData({
+      ...formData,
+      images: [...formData.images, url],
+    });
+
+    toast({
+      title: 'Immagine aggiunta',
+      description: 'L\'immagine è stata aggiunta. Verifica che sia visibile nella preview.',
+    });
   };
 
   const handleRemoveImage = (index: number) => {

@@ -60,64 +60,78 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
       // Setup auth state listener solo una volta
       if (isSupabaseConfigured() && isMounted) {
         try {
+          // Flag per prevenire loop infiniti
+          let isHandlingAuthChange = false;
+          
           const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             if (!isMounted) return;
-
-            console.log('[ProtectedRoute] Auth state change:', event, session ? 'session exists' : 'no session');
-
-            // Gestisci eventi specifici
-            if (event === 'TOKEN_REFRESHED') {
-              console.log('[ProtectedRoute] Token refreshed successfully');
-              // Il token è stato rinnovato, aggiorna l'utente
-              try {
-                const currentUser = await auth.getCurrentUser();
-                if (currentUser && isMounted) {
-                  setUser(currentUser);
-                }
-              } catch (error) {
-                console.error('Error getting user after token refresh:', error);
-              }
-              return; // Non fare altro, la sessione esiste
-            }
-
-            if (event === 'SIGNED_OUT' || (event === 'USER_UPDATED' && !session)) {
-              console.log('[ProtectedRoute] User signed out');
-              setUser(null);
-              // Evita loop: naviga solo se non siamo già sulla pagina di login
-              const currentPath = window.location.pathname;
-              if (currentPath !== '/login' && !currentPath.startsWith('/login')) {
-                navigate('/login', { replace: true });
-              }
+            
+            // Previeni loop: se stiamo già gestendo un cambio, ignora
+            if (isHandlingAuthChange) {
+              console.log('[ProtectedRoute] Already handling auth change, skipping...');
               return;
             }
 
-            if (!session) {
-              console.log('[ProtectedRoute] No session');
-              setUser(null);
-              // Evita loop: naviga solo se non siamo già sulla pagina di login
-              const currentPath = window.location.pathname;
-              if (currentPath !== '/login' && !currentPath.startsWith('/login')) {
-                navigate('/login', { replace: true });
-              }
-            } else {
-              try {
-                const currentUser = await auth.getCurrentUser();
-                if (currentUser && isMounted) {
-                  setUser(currentUser);
-                } else if (isMounted) {
-                  console.warn('[ProtectedRoute] Session exists but user not found');
-                  setUser(null);
-                  const currentPath = window.location.pathname;
-                  if (currentPath !== '/login' && !currentPath.startsWith('/login')) {
-                    navigate('/login', { replace: true });
+            console.log('[ProtectedRoute] Auth state change:', event, session ? 'session exists' : 'no session');
+
+            isHandlingAuthChange = true;
+
+            try {
+              // Gestisci eventi specifici
+              if (event === 'TOKEN_REFRESHED') {
+                console.log('[ProtectedRoute] Token refreshed successfully');
+                // Il token è stato rinnovato, aggiorna l'utente (senza chiamare getCurrentUser per evitare loop)
+                // La sessione esiste, quindi l'utente è autenticato
+                if (isMounted && session) {
+                  // Usa direttamente i dati della sessione invece di chiamare getCurrentUser
+                  const userFromSession = session.user;
+                  if (userFromSession) {
+                    setUser({
+                      id: userFromSession.id,
+                      email: userFromSession.email || '',
+                    });
                   }
                 }
-              } catch (error) {
-                console.error('Error getting user on auth state change:', error);
-                if (isMounted) {
-                  setUser(null);
-                }
+                isHandlingAuthChange = false;
+                return;
               }
+
+              if (event === 'SIGNED_OUT' || (event === 'USER_UPDATED' && !session)) {
+                console.log('[ProtectedRoute] User signed out');
+                setUser(null);
+                // Evita loop: naviga solo se non siamo già sulla pagina di login
+                const currentPath = window.location.pathname;
+                if (currentPath !== '/login' && !currentPath.startsWith('/login') && isMounted) {
+                  navigate('/login', { replace: true });
+                }
+                isHandlingAuthChange = false;
+                return;
+              }
+
+              if (!session) {
+                console.log('[ProtectedRoute] No session');
+                setUser(null);
+                // Evita loop: naviga solo se non siamo già sulla pagina di login
+                const currentPath = window.location.pathname;
+                if (currentPath !== '/login' && !currentPath.startsWith('/login') && isMounted) {
+                  navigate('/login', { replace: true });
+                }
+                isHandlingAuthChange = false;
+                return;
+              }
+
+              // Session esiste: usa direttamente i dati della sessione invece di chiamare getCurrentUser
+              // Questo previene loop infiniti
+              if (session.user && isMounted) {
+                setUser({
+                  id: session.user.id,
+                  email: session.user.email || '',
+                });
+              }
+            } catch (error) {
+              console.error('[ProtectedRoute] Error in auth state change handler:', error);
+            } finally {
+              isHandlingAuthChange = false;
             }
           });
           authSubscription = subscription;

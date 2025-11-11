@@ -209,3 +209,4 @@ Per testare le ottimizzazioni:
 - Se i dati sono freschi (< 60s), React Query non farà refetch automatico
 - Le mutation non bloccano più l'UI grazie alla rimozione di `await` nei callbacks
 
+

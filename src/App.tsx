@@ -27,7 +27,8 @@ const queryClient = new QueryClient({
       refetchOnWindowFocus: false, // Non refetch quando si torna alla finestra
       refetchOnMount: false, // Non refetch quando si monta il componente (usa cache se disponibile)
       refetchOnReconnect: true, // Refetch solo quando si riconnette
-      retry: 1, // Riprova solo 1 volta in caso di errore
+      retry: 1, // Riprova solo 1 volta in caso di errore (previene loop infiniti)
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Backoff esponenziale
       gcTime: 300000, // Mantieni in cache per 5 minuti (precedentemente cacheTime)
       networkMode: 'online', // Esegui query solo se online
       // Non refetch automaticamente durante le mutation

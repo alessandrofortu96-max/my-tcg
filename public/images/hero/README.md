@@ -23,3 +23,4 @@ Inserisci qui le immagini di sfondo per le sezioni hero.
 - Le immagini vengono caricate da: `/images/hero/[nome-file].jpg` o `.png`
 - Il codice supporta automaticamente sia JPG che PNG
 
+

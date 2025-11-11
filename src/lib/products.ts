@@ -193,8 +193,28 @@ export const getProducts = async (
       query = query.range(offset, offset + pagination.limit - 1);
     }
 
-    // Esegui la query (Supabase gestisce internamente i timeout)
-    const { data, error } = await query;
+    // Esegui la query con timeout di 15 secondi
+    let data: any = null;
+    let error: any = null;
+    
+    try {
+      const queryPromise = query;
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Timeout loading products')), 15000);
+      });
+      
+      const result = await Promise.race([
+        queryPromise,
+        timeoutPromise,
+      ]) as any;
+      
+      data = result.data;
+      error = result.error;
+    } catch (timeoutError: any) {
+      console.error('Error or timeout fetching products:', timeoutError?.message || timeoutError);
+      error = timeoutError;
+      data = null;
+    }
 
     if (error) {
       console.error('Error fetching products:', error);
@@ -211,21 +231,69 @@ export const getProducts = async (
 
     // Carica tutte le immagini in una volta (solo per i prodotti della pagina corrente)
     const productIds = data.map((p: any) => p.id);
-    const { data: allImages } = await supabase
-      .from('product_images')
-      .select('product_id, url, sort_order')
-      .in('product_id', productIds)
-      .order('sort_order', { ascending: true });
+    
+    // Query immagini con gestione errori e timeout
+    let allImages: any[] = [];
+    try {
+      const imagesPromise = supabase
+        .from('product_images')
+        .select('product_id, url, sort_order')
+        .in('product_id', productIds)
+        .order('sort_order', { ascending: true });
+      
+      // Timeout di 10 secondi per la query immagini
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Timeout loading images')), 10000);
+      });
+      
+      const { data: imagesData, error: imagesError } = await Promise.race([
+        imagesPromise,
+        timeoutPromise,
+      ]) as any;
+      
+      if (imagesError) {
+        console.warn('Error fetching images (continuing with empty array):', imagesError);
+        allImages = [];
+      } else {
+        allImages = imagesData || [];
+      }
+    } catch (error: any) {
+      console.warn('Error or timeout fetching images (continuing with empty array):', error?.message || error);
+      allImages = [];
+    }
 
-    // Carica tutti i featured in una volta
-    const { data: allFeatured } = await supabase
-      .from('featured_products')
-      .select('product_id')
-      .in('product_id', productIds);
+    // Carica tutti i featured in una volta con gestione errori e timeout
+    let allFeatured: any[] = [];
+    try {
+      const featuredPromise = supabase
+        .from('featured_products')
+        .select('product_id')
+        .in('product_id', productIds);
+      
+      // Timeout di 10 secondi per la query featured
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Timeout loading featured')), 10000);
+      });
+      
+      const { data: featuredData, error: featuredError } = await Promise.race([
+        featuredPromise,
+        timeoutPromise,
+      ]) as any;
+      
+      if (featuredError) {
+        console.warn('Error fetching featured (continuing with empty array):', featuredError);
+        allFeatured = [];
+      } else {
+        allFeatured = featuredData || [];
+      }
+    } catch (error: any) {
+      console.warn('Error or timeout fetching featured (continuing with empty array):', error?.message || error);
+      allFeatured = [];
+    }
 
-    const featuredSet = new Set(allFeatured?.map((f: any) => f.product_id) || []);
+    const featuredSet = new Set(allFeatured.map((f: any) => f.product_id));
     const imagesMap = new Map<string, string[]>();
-    allImages?.forEach((img: any) => {
+    allImages.forEach((img: any) => {
       if (!imagesMap.has(img.product_id)) {
         imagesMap.set(img.product_id, []);
       }
@@ -743,8 +811,16 @@ export const createProduct = async (product: Omit<Product, 'id' | 'createdAt' | 
   }
 
   return executeWithAuthRetry(async () => {
+    console.log('[createProduct] Starting product creation...');
+    console.log('[createProduct] Product data:', {
+      name: product.name,
+      game: product.game,
+      type: product.type,
+      imagesCount: product.images?.length || 0,
+    });
     try {
     // Trova o crea game_id
+    console.log('[createProduct] Step 1: Finding game_id...');
     const gameSlugMap: Record<GameType, string> = {
       pokemon: 'pokemon',
       yugioh: 'yu-gi-oh',
@@ -752,6 +828,7 @@ export const createProduct = async (product: Omit<Product, 'id' | 'createdAt' | 
       other: 'other',
     };
     const gameSlug = gameSlugMap[product.game];
+    console.log('[createProduct] Looking for game with slug:', gameSlug);
     const gameNameMap: Record<GameType, string> = {
       pokemon: 'Pokémon',
       yugioh: 'Yu-Gi-Oh!',
@@ -759,11 +836,13 @@ export const createProduct = async (product: Omit<Product, 'id' | 'createdAt' | 
       other: 'Altri prodotti',
     };
 
-    let { data: gameData } = await supabase
+    let { data: gameData, error: gameQueryError } = await supabase
       .from('games')
       .select('id')
       .eq('slug', gameSlug)
       .single();
+    
+    console.log('[createProduct] Game query result:', { gameData, error: gameQueryError });
 
     // Se non esiste, prova a crearlo (potrebbe fallire se non hai permessi, usa pokemon come fallback)
     if (!gameData && gameSlug === 'other') {
@@ -792,17 +871,22 @@ export const createProduct = async (product: Omit<Product, 'id' | 'createdAt' | 
     }
 
     // Trova type_id
+    console.log('[createProduct] Step 2: Finding type_id...');
     const typeIdMap: Record<ProductType, number> = {
       raw: 1,
       graded: 2,
       sealed: 3,
     };
     const typeId = typeIdMap[product.type];
+    console.log('[createProduct] Type ID:', typeId);
 
     // Genera slug
+    console.log('[createProduct] Step 3: Generating slug...');
     const slug = `${product.name.toLowerCase().replace(/\s+/g, '-')}-${product.cardCode || Date.now()}`;
+    console.log('[createProduct] Generated slug:', slug);
 
     // Crea prodotto
+    console.log('[createProduct] Step 4: Creating product in database...');
     const { data: newProduct, error: productError } = await supabase
       .from('products')
       .insert({
@@ -824,31 +908,99 @@ export const createProduct = async (product: Omit<Product, 'id' | 'createdAt' | 
       .single();
 
     if (productError || !newProduct) {
-      console.error('Error creating product:', productError);
+      console.error('[createProduct] Error creating product:', productError);
+      console.error('[createProduct] Product data:', {
+        slug,
+        name: product.name,
+        game_id: gameData.id,
+        type_id,
+        status: mapProductStatusToStatus(product.status),
+      });
       throw new Error(productError?.message || 'Error creating product');
     }
 
+    console.log(`[createProduct] Product created successfully with ID: ${newProduct.id}`);
+
     // Aggiungi immagini
+    console.log('[createProduct] Step 5: Processing images...');
     if (product.images && product.images.length > 0) {
-      const imagesToInsert = product.images.map((url, index) => ({
-        product_id: newProduct.id,
-        url,
-        alt: product.name,
-        sort_order: index,
-      }));
+      console.log(`[createProduct] Inserting ${product.images.length} images for product ${newProduct.id}`);
+      console.log('[createProduct] Image URLs:', product.images.map((url, idx) => `[${idx}] ${url?.substring(0, 80)}...`));
+      
+      // Filtra URL vuoti o non validi
+      const validImages = product.images.filter((url, index) => {
+        if (!url || typeof url !== 'string' || url.trim() === '') {
+          console.warn(`[createProduct] Skipping invalid image URL [${index}]:`, url);
+          return false;
+        }
+        
+        // Rimuovi caratteri strani alla fine (come €, spazi, etc.)
+        const cleanedUrl = url.trim();
+        
+        try {
+          const urlObj = new URL(cleanedUrl);
+          // Verifica che l'URL sia valido
+          if (!urlObj.protocol || !urlObj.hostname) {
+            console.warn(`[createProduct] Skipping invalid image URL [${index}] (missing protocol/host):`, cleanedUrl);
+            return false;
+          }
+          return true;
+        } catch (e) {
+          console.warn(`[createProduct] Skipping invalid image URL [${index}] (not a valid URL):`, cleanedUrl, e);
+          return false;
+        }
+      });
+      
+      console.log(`[createProduct] Valid images after filtering: ${validImages.length}/${product.images.length}`);
 
-      const { error: imagesError } = await supabase
-        .from('product_images')
-        .insert(imagesToInsert);
+      if (validImages.length === 0) {
+        console.warn('[createProduct] No valid images to insert');
+      } else {
+        const imagesToInsert = validImages.map((url, index) => ({
+          product_id: newProduct.id,
+          url: url.trim(), // Assicurati che l'URL sia pulito
+          alt: product.name,
+          sort_order: index,
+        }));
 
-      if (imagesError) {
-        console.error('Error creating product images:', imagesError);
-        // Non fallire se le immagini non si possono aggiungere
+        console.log(`[createProduct] Step 5.1: Inserting ${imagesToInsert.length} valid images into database...`);
+        console.log('[createProduct] Images to insert:', imagesToInsert.map(img => ({ url: img.url.substring(0, 60) + '...', sort_order: img.sort_order })));
+        
+        const { data: insertedImages, error: imagesError } = await supabase
+          .from('product_images')
+          .insert(imagesToInsert)
+          .select();
+        
+        console.log('[createProduct] Images insert result:', { 
+          insertedCount: insertedImages?.length || 0, 
+          error: imagesError 
+        });
+
+        if (imagesError) {
+          console.error('[createProduct] Error creating product images:', imagesError);
+          console.error('[createProduct] Images data:', imagesToInsert);
+          // Se è un errore critico (es. constraint violation), fallisci
+          if (
+            imagesError.code === '23505' || // Unique violation
+            imagesError.code === '23503' || // Foreign key violation
+            imagesError.message?.includes('permission') ||
+            imagesError.message?.includes('policy') ||
+            imagesError.message?.includes('RLS')
+          ) {
+            throw new Error(`Errore nel salvataggio delle immagini: ${imagesError.message}`);
+          }
+          // Altrimenti, continua ma avvisa (potrebbe essere un problema di rete temporaneo)
+          console.warn('[createProduct] Continuing despite image insertion error');
+        } else {
+          console.log(`[createProduct] Successfully inserted ${insertedImages?.length || 0} images`);
+        }
       }
     }
 
     // Se featured, aggiungi a featured_products
+    console.log('[createProduct] Step 6: Checking featured status...');
     if (product.featured) {
+      console.log('[createProduct] Adding product to featured_products...');
       const { error: featuredError } = await supabase
         .from('featured_products')
         .insert({
@@ -857,14 +1009,30 @@ export const createProduct = async (product: Omit<Product, 'id' | 'createdAt' | 
         });
 
       if (featuredError) {
-        console.error('Error adding to featured:', featuredError);
+        console.error('[createProduct] Error adding to featured:', featuredError);
         // Non fallire se featured non si può aggiungere
+      } else {
+        console.log('[createProduct] Product added to featured successfully');
       }
     }
 
-      return await getProductById(newProduct.id, true);
-    } catch (error) {
-      console.error('Error in createProduct:', error);
+      console.log(`[createProduct] Step 7: Fetching created product ${newProduct.id}...`);
+      const createdProduct = await getProductById(newProduct.id, true);
+      if (!createdProduct) {
+        console.error('[createProduct] Failed to fetch created product');
+        throw new Error('Prodotto creato ma impossibile recuperarlo');
+      }
+      console.log(`[createProduct] Product creation completed successfully: ${createdProduct.id}`);
+      console.log('[createProduct] Final product data:', {
+        id: createdProduct.id,
+        name: createdProduct.name,
+        imagesCount: createdProduct.images?.length || 0,
+        featured: createdProduct.featured,
+      });
+      return createdProduct;
+    } catch (error: any) {
+      console.error('[createProduct] Error in createProduct:', error);
+      console.error('[createProduct] Error stack:', error?.stack);
       throw error;
     }
   }, 'createProduct');

@@ -54,9 +54,13 @@ const AdminReviews = () => {
       // Carica le recensioni (usa il cache in memoria se disponibile)
       return await getAllReviews();
     },
-    staleTime: 30000, // Considera i dati freschi per 30 secondi
+    staleTime: 60000, // Considera i dati freschi per 60 secondi (aumentato)
     refetchOnWindowFocus: false, // Non refetch quando si torna alla finestra
-    refetchOnMount: true, // Refetch quando si monta il componente
+    refetchOnMount: false, // NON refetch quando si monta (usa cache per evitare loop)
+    refetchOnReconnect: true, // Refetch solo quando si riconnette
+    gcTime: 300000, // Mantieni in cache per 5 minuti
+    retry: 1, // Riprova solo 1 volta in caso di errore (previene loop infiniti)
+    retryDelay: 1000, // Aspetta 1 secondo prima di riprovare
     initialData: getAllReviewsSync(), // Dati iniziali sincroni
   });
 
@@ -98,16 +102,20 @@ const AdminReviews = () => {
   const saveReviewMutation = useMutation({
     mutationFn: async (data: { id?: string; review: Omit<Review, 'id'> }) => {
       if (data.id) {
-        updateReview(data.id, data.review);
-        return true;
+        const success = updateReview(data.id, data.review);
+        if (!success) {
+          throw new Error('Recensione non trovata');
+        }
+        return getAllReviewsSync(); // Ritorna i dati aggiornati
       } else {
         addReview(data.review);
-        return true;
+        return getAllReviewsSync(); // Ritorna i dati aggiornati
       }
     },
-    onSuccess: async (_, variables) => {
-      // Invalida la query per refetch automatico
-      await queryClient.invalidateQueries({ queryKey: ['admin-reviews'] });
+    onSuccess: (updatedReviews, variables) => {
+      // Aggiorna direttamente la cache invece di invalidare (evita loop)
+      queryClient.setQueryData(['admin-reviews'], updatedReviews);
+      
       toast({
         title: variables.id ? 'Recensione aggiornata' : 'Recensione aggiunta',
         description: variables.id 
@@ -158,9 +166,17 @@ const AdminReviews = () => {
 
   // Mutation per delete review
   const deleteReviewMutation = useMutation({
-    mutationFn: deleteReview,
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['admin-reviews'] });
+    mutationFn: (id: string) => {
+      const success = deleteReview(id);
+      if (!success) {
+        throw new Error('Recensione non trovata');
+      }
+      return getAllReviewsSync(); // Ritorna i dati aggiornati
+    },
+    onSuccess: (updatedReviews) => {
+      // Aggiorna direttamente la cache invece di invalidare (evita loop)
+      queryClient.setQueryData(['admin-reviews'], updatedReviews);
+      
       toast({
         title: 'Recensione eliminata',
         description: 'La recensione è stata rimossa con successo',
@@ -177,9 +193,17 @@ const AdminReviews = () => {
 
   // Mutation per toggle published
   const togglePublishedMutation = useMutation({
-    mutationFn: toggleReviewPublished,
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['admin-reviews'] });
+    mutationFn: (id: string) => {
+      const success = toggleReviewPublished(id);
+      if (!success) {
+        throw new Error('Recensione non trovata');
+      }
+      return getAllReviewsSync(); // Ritorna i dati aggiornati
+    },
+    onSuccess: (updatedReviews) => {
+      // Aggiorna direttamente la cache invece di invalidare (evita loop)
+      queryClient.setQueryData(['admin-reviews'], updatedReviews);
+      
       toast({
         title: 'Stato aggiornato',
         description: 'Lo stato di pubblicazione è stato modificato',
@@ -231,13 +255,16 @@ const AdminReviews = () => {
         }
       });
       
-      return imported;
+      // Ritorna i dati aggiornati invece del numero importato
+      return getAllReviewsSync();
     },
-    onSuccess: async (imported) => {
-      await queryClient.invalidateQueries({ queryKey: ['admin-reviews'] });
+    onSuccess: (updatedReviews) => {
+      // Aggiorna direttamente la cache invece di invalidare (evita loop)
+      queryClient.setQueryData(['admin-reviews'], updatedReviews);
+      
       toast({
         title: 'Import completato',
-        description: `${imported} recensioni importate con successo`,
+        description: `Recensioni importate con successo`,
       });
       setIsImportDialogOpen(false);
     },

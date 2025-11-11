@@ -44,6 +44,8 @@ const Admin = () => {
     refetchOnMount: false, // Non refetch quando si monta il componente (usa cache se disponibile)
     refetchOnReconnect: true, // Refetch solo quando si riconnette
     gcTime: 300000, // Mantieni in cache per 5 minuti (precedentemente cacheTime)
+    retry: 1, // Riprova solo 1 volta in caso di errore (previene loop infiniti)
+    retryDelay: 1000, // Aspetta 1 secondo prima di riprovare
   });
 
   useEffect(() => {

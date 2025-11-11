@@ -3,3 +3,4 @@ insert into public.games (slug, name) values
   ('other', 'Altri prodotti')
 on conflict (slug) do nothing;
 
+

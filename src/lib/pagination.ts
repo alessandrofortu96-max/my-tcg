@@ -50,3 +50,4 @@ export const createPaginationResult = <T>(
  */
 export const DEFAULT_PAGE_SIZE = 24; // 4 colonne x 6 righe su desktop
 
+

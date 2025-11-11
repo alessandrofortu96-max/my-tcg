@@ -116,10 +116,9 @@ insert into public.product_types (id, slug, name) values
   (3,'sealed','Prodotti Sigillati')
 on conflict (id) do nothing;
 
--- (opzionale) viste di comodo
-create or replace view public.v_featured as
-select p.*, fp.rank
-from public.featured_products fp
-join public.products p on p.id = fp.product_id
-where p.published = true;
+-- NOTA: Vista v_featured rimossa per sicurezza
+-- La vista non è utilizzata nel codice (getFeaturedProducts() usa query dirette alle tabelle)
+-- Rimuoverla elimina il problema SECURITY DEFINER segnalato dal Security Advisor
+-- Se necessario in futuro, può essere ricreata con: CREATE VIEW ... WITH (security_invoker = true) AS ...
+
 

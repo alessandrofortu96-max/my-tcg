@@ -140,48 +140,99 @@ export const auth = {
     }
   },
 
-  // Ensure valid session (refresh if needed)
+  // Ensure valid session (refresh if needed) - with timeout protection
+  // SEMPLIFICATO: Non fare refresh preventivo, solo verifica la sessione esistente
   ensureValidSession: async (): Promise<{ session: any; error: any }> => {
     if (!isSupabaseConfigured()) {
+      console.error('[ensureValidSession] Supabase not configured');
       return { session: null, error: new Error('Supabase not configured') };
     }
 
+    // Helper per aggiungere timeout a una promise
+    const withTimeout = <T>(promise: Promise<T>, timeoutMs: number, operationName: string): Promise<T> => {
+      return Promise.race([
+        promise,
+        new Promise<T>((_, reject) => {
+          setTimeout(() => {
+            reject(new Error(`Timeout: ${operationName} ha impiegato più di ${timeoutMs}ms`));
+          }, timeoutMs);
+        }),
+      ]);
+    };
+
     try {
-      // Prima verifica la sessione corrente
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      console.log('[ensureValidSession] Getting current session (no preventive refresh)...');
+      
+      // Verifica la sessione corrente con timeout di 3 secondi (più corto)
+      // NON facciamo refresh preventivo per evitare blocchi
+      let session: any = null;
+      let sessionError: any = null;
+      
+      try {
+        const getSessionPromise = supabase.auth.getSession();
+        const result = await withTimeout(
+          getSessionPromise,
+          3000,
+          'getSession'
+        );
+        session = result.data?.session || null;
+        sessionError = result.error || null;
+      } catch (timeoutError: any) {
+        console.error('[ensureValidSession] Timeout getting session after 3s:', timeoutError);
+        // Timeout: ritorna errore invece di provare fallback complessi
+        return { 
+          session: null, 
+          error: new Error('Timeout: impossibile ottenere la sessione. Verifica la connessione internet.') 
+        };
+      }
+      
+      console.log('[ensureValidSession] Session retrieved:', { 
+        hasSession: !!session, 
+        error: sessionError?.message,
+        expiresAt: session?.expires_at 
+      });
       
       if (sessionError || !session) {
+        console.error('[ensureValidSession] No session or error:', sessionError);
         return { session: null, error: sessionError || new Error('No session') };
       }
 
-      // Verifica se il token è scaduto o sta per scadere
+      // Verifica se il token è già scaduto (ma NON fare refresh preventivo)
       const expiresAt = session.expires_at;
       if (expiresAt) {
         const now = Math.floor(Date.now() / 1000);
         const timeUntilExpiry = expiresAt - now;
         
-        // Se il token scade entro 120 secondi, fai refresh preventivo
-        if (timeUntilExpiry < 120) {
-          console.log('Token expiring soon, refreshing...');
-          try {
-            const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
-            if (refreshError) {
-              console.error('Error refreshing session:', refreshError);
-              return { session: null, error: refreshError };
-            }
-            if (refreshedSession) {
-              return { session: refreshedSession, error: null };
-            }
-          } catch (refreshErr) {
-            console.error('Error during session refresh:', refreshErr);
-            return { session: null, error: refreshErr };
-          }
+        console.log('[ensureValidSession] Token expiry check:', {
+          expiresAt,
+          now,
+          timeUntilExpiry,
+          isExpired: timeUntilExpiry <= 0
+        });
+        
+        // Se il token è già scaduto da più di 5 minuti, ritorna errore
+        if (timeUntilExpiry <= -300) {
+          console.error('[ensureValidSession] Token expired more than 5 minutes ago');
+          return { session: null, error: new Error('Sessione scaduta. Effettua il login di nuovo.') };
         }
+        
+        // Se il token è scaduto ma da meno di 5 minuti, prova a usarlo comunque
+        // (il refresh verrà fatto automaticamente da Supabase se necessario)
+        if (timeUntilExpiry <= 0) {
+          console.warn('[ensureValidSession] Token expired but less than 5 minutes ago. Using session (Supabase will auto-refresh if needed).');
+        } else {
+          console.log('[ensureValidSession] Token still valid');
+        }
+      } else {
+        console.warn('[ensureValidSession] No expires_at in session, using session as-is');
       }
 
+      console.log('[ensureValidSession] Returning session (no preventive refresh)');
       return { session, error: null };
     } catch (error: any) {
-      console.error('Error in ensureValidSession:', error);
+      console.error('[ensureValidSession] Error in ensureValidSession:', error);
+      console.error('[ensureValidSession] Error message:', error?.message);
+      console.error('[ensureValidSession] Error stack:', error?.stack);
       return { session: null, error };
     }
   },

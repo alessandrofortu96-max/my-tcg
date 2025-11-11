@@ -84,3 +84,4 @@ async function createFaviconIco() {
 // Esegui lo script
 createFaviconIco();
 
+
